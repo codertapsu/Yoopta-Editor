@@ -1,5 +1,24 @@
 # @yoopta/themes-shadcn
 
+## 6.0.4
+
+### Patch Changes
+
+- Fixed multiple instance warning with shiki
+- Updated dependencies
+  - @yoopta/editor@6.0.4
+  - @yoopta/ui@6.0.4
+  - @yoopta/code@6.0.4
+  - @yoopta/embed@6.0.4
+  - @yoopta/file@6.0.4
+  - @yoopta/image@6.0.4
+  - @yoopta/lists@6.0.4
+  - @yoopta/steps@6.0.4
+  - @yoopta/table@6.0.4
+  - @yoopta/table-of-contents@6.0.4
+  - @yoopta/tabs@6.0.4
+  - @yoopta/video@6.0.4
+
 ## 6.0.3
 
 ### Patch Changes

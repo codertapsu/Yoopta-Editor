@@ -1,5 +1,11 @@
 # @yoopta/editor
 
+## 6.0.4
+
+### Patch Changes
+
+- Fixed multiple instance warning with shiki
+
 ## 6.0.3
 
 ### Patch Changes

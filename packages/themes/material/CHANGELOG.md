@@ -1,5 +1,15 @@
 # @yoopta/themes-material
 
+## 6.0.4
+
+### Patch Changes
+
+- Fixed multiple instance warning with shiki
+- Updated dependencies
+  - @yoopta/editor@6.0.4
+  - @yoopta/code@6.0.4
+  - @yoopta/image@6.0.4
+
 ## 6.0.3
 
 ### Patch Changes
