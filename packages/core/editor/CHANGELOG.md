@@ -1,5 +1,12 @@
 # @yoopta/editor
 
+## 6.0.5
+
+### Patch Changes
+
+- fix multiple shiki instace
+- 31958f4: bump patch
+
 ## 6.0.4
 
 ### Patch Changes

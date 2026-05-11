@@ -1,5 +1,26 @@
 # @yoopta/themes-shadcn
 
+## 6.0.5
+
+### Patch Changes
+
+- fix multiple shiki instace
+- 31958f4: bump patch
+- Updated dependencies
+- Updated dependencies [31958f4]
+  - @yoopta/editor@6.0.5
+  - @yoopta/ui@6.0.5
+  - @yoopta/code@6.0.5
+  - @yoopta/embed@6.0.5
+  - @yoopta/file@6.0.5
+  - @yoopta/image@6.0.5
+  - @yoopta/lists@6.0.5
+  - @yoopta/steps@6.0.5
+  - @yoopta/table@6.0.5
+  - @yoopta/table-of-contents@6.0.5
+  - @yoopta/tabs@6.0.5
+  - @yoopta/video@6.0.5
+
 ## 6.0.4
 
 ### Patch Changes
