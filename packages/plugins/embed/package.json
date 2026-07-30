@@ -15,7 +15,10 @@
   "peerDependencies": {
     "@yoopta/editor": "6.0.5",
     "react": ">=18.2.0",
-    "react-dom": ">=18.2.0"
+    "react-dom": ">=18.2.0",
+    "slate": "^0.120.0",
+    "slate-dom": "^0.119.0",
+    "slate-react": "^0.120.0"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
