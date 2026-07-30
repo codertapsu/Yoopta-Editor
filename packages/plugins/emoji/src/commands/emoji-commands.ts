@@ -1,6 +1,6 @@
 import type { YooEditor } from '@yoopta/editor';
 import { Blocks } from '@yoopta/editor';
-import { Transforms } from 'slate';
+import { Editor, Node, Path, Range, Text, Transforms } from 'slate';
 import { ReactEditor } from 'slate-react';
 
 import type {
@@ -55,21 +55,57 @@ export const EmojiCommands: EmojiCommandsType = {
     const slateEditor = Blocks.getBlockSlate(editor, { id: blockId });
     if (!slateEditor) return;
 
-    // Calculate the end offset (trigger char + query length)
     const trigger = state.trigger;
     const query = state.query;
     const triggerLength = trigger?.char.length ?? 1;
-    const endOffset = startOffset + triggerLength + query.length;
 
-    // Select the range from trigger start to current position
-    Transforms.select(slateEditor, {
-      anchor: { path, offset: startOffset },
-      focus: { path, offset: endOffset },
-    });
+    // Resolve the text node the trigger lives in. Bail out instead of throwing
+    // if the document moved on since the dropdown opened.
+    let node: Node;
+    try {
+      node = Node.get(slateEditor, path);
+    } catch {
+      emojiEditor.emoji.close('no-match');
+      return;
+    }
+    if (!Text.isText(node) || startOffset > node.text.length) {
+      emojiEditor.emoji.close('no-match');
+      return;
+    }
 
-    // Delete the trigger + query text, then insert the emoji unicode character
-    Transforms.delete(slateEditor);
-    Transforms.insertText(slateEditor, item.emoji);
+    // Prefer the live caret position over the tracked query length — they can
+    // diverge when an IME replaces a whole word at once.
+    const caretOffset =
+      slateEditor.selection &&
+      Range.isCollapsed(slateEditor.selection) &&
+      Path.equals(slateEditor.selection.anchor.path, path)
+        ? slateEditor.selection.anchor.offset
+        : startOffset + triggerLength + query.length;
+
+    const endOffset = Math.min(
+      Math.max(caretOffset, startOffset + triggerLength),
+      node.text.length,
+    );
+
+    // Suppress the text sync: the intermediate states below would otherwise be
+    // read as "the trigger text changed" and re-open the dropdown.
+    emojiEditor.emoji.isApplying = true;
+
+    try {
+      Editor.withoutNormalizing(slateEditor, () => {
+        // Select the range from trigger start to current position
+        Transforms.select(slateEditor, {
+          anchor: { path, offset: startOffset },
+          focus: { path, offset: endOffset },
+        });
+
+        // Delete the trigger + query text, then insert the emoji unicode character
+        Transforms.delete(slateEditor);
+        Transforms.insertText(slateEditor, item.emoji);
+      });
+    } finally {
+      emojiEditor.emoji.isApplying = false;
+    }
 
     // Close dropdown
     const pluginOptions = editor.plugins.Emoji?.options as EmojiPluginOptions | undefined;

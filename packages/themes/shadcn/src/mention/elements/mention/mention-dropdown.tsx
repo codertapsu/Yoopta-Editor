@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useMentionDropdown } from '@yoopta/mention';
 
 import { MentionItem } from './mention-item';
@@ -28,6 +29,7 @@ export const MentionDropdown = ({
     selectItem,
     refs,
     floatingStyles,
+    portalRoot,
   } = useMentionDropdown();
 
   const listRef = useRef<HTMLDivElement>(null);
@@ -44,12 +46,16 @@ export const MentionDropdown = ({
 
   if (!isOpen) return null;
 
-  return (
+  const dropdown = (
     <div
       ref={refs.setFloating}
       style={floatingStyles}
+      // Keep the editor selection intact when the list is touched or clicked —
+      // losing focus on mobile collapses the keyboard before the tap resolves.
+      onPointerDown={(e) => e.preventDefault()}
+      onMouseDown={(e) => e.preventDefault()}
       className={cn(
-        'z-50 min-w-[220px] max-w-[320px] rounded-md border bg-popover text-popover-foreground shadow-md',
+        'z-50 flex flex-col min-w-[220px] max-w-[320px] rounded-md border bg-popover text-popover-foreground shadow-md',
         'animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
         className,
       )}>
@@ -91,7 +97,7 @@ export const MentionDropdown = ({
       )}
 
       {!loading && !error && items.length > 0 && (
-        <ScrollArea style={{ maxHeight, overflowY: 'auto' }} className="p-1">
+        <ScrollArea style={{ maxHeight, overflowY: 'auto' }} className="min-h-0 flex-1 p-1">
           <div ref={listRef} role="listbox" aria-label="Mention suggestions">
             {items.map((item, index) => (
               <div
@@ -113,7 +119,8 @@ export const MentionDropdown = ({
       )}
 
       {items.length > 0 && (
-        <div className="px-3 py-1.5 border-t text-[10px] text-muted-foreground flex items-center gap-2">
+        // Keyboard hints are meaningless without a physical keyboard
+        <div className="px-3 py-1.5 border-t text-[10px] text-muted-foreground flex items-center gap-2 [@media(pointer:coarse)]:hidden">
           <span>
             <kbd className="px-1 py-0.5 rounded bg-muted text-[9px]">↑↓</kbd> navigate
           </span>
@@ -127,4 +134,9 @@ export const MentionDropdown = ({
       )}
     </div>
   );
+
+  // Portal to the document body so ancestors with `overflow` or `transform`
+  // cannot clip the dropdown. Falls back to inline rendering before the portal
+  // target is resolved (SSR / first paint).
+  return portalRoot ? createPortal(dropdown, portalRoot) : dropdown;
 }

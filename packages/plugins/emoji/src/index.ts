@@ -8,6 +8,8 @@ export type {
   // State types
   EmojiTargetRect,
   EmojiState,
+  EmojiTriggerRange,
+  EmojiOpenParams,
   // Plugin options
   EmojiPluginOptions,
   // Event types
@@ -31,6 +33,16 @@ export type { EmojiCommandsType } from './commands/emoji-commands';
 export { useEmojiDropdown, useEmojiState, useEmojiTriggerActive } from './hooks';
 
 export { withEmoji } from './extensions/withEmoji';
+export { installEmojiSync, syncEmojiState } from './extensions/withEmojiSync';
+
+export {
+  findTriggerMatch,
+  getEmojiTargetRect,
+  getTriggers,
+  measureTriggerRect,
+  shouldTriggerActivate,
+} from './utils';
+export type { EmojiTriggerMatch } from './utils';
 
 export { EMOJI_DATA } from './data/emoji-data';
 export { defaultEmojiSearch } from './data/default-search';

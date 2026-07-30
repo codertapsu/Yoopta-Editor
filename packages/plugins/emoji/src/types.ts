@@ -28,7 +28,18 @@ export type EmojiTrigger = {
 
 export type EmojiTargetRect = {
   domRect: DOMRect;
-  clientRects: DOMRectList;
+  /**
+   * Rects passed to floating-ui's `inline()` middleware. A real `DOMRectList`
+   * when it comes straight from a DOM Range, a plain array when the rect had to
+   * be synthesized (WebKit returns no rects for collapsed ranges).
+   */
+  clientRects: DOMRectList | DOMRect[];
+};
+
+export type EmojiTriggerRange = {
+  blockId: string;
+  path: number[];
+  startOffset: number;
 };
 
 export type EmojiState = {
@@ -41,11 +52,13 @@ export type EmojiState = {
   /** Position for the dropdown */
   targetRect: EmojiTargetRect | null;
   /** The range where trigger was typed (for replacement) */
-  triggerRange: {
-    blockId: string;
-    path: number[];
-    startOffset: number;
-  } | null;
+  triggerRange: EmojiTriggerRange | null;
+  /**
+   * A trigger range the user explicitly dismissed (Escape / click outside).
+   * The text sync will not re-open the dropdown for this exact range, otherwise
+   * the still-matching `:query` text would immediately re-open it.
+   */
+  dismissedRange: EmojiTriggerRange | null;
 };
 
 export const INITIAL_EMOJI_STATE: EmojiState = {
@@ -54,6 +67,7 @@ export const INITIAL_EMOJI_STATE: EmojiState = {
   trigger: null,
   targetRect: null,
   triggerRange: null,
+  dismissedRange: null,
 };
 
 export type EmojiPluginOptions = {
@@ -133,7 +147,14 @@ export type EmojiOpenEvent = {
 };
 
 export type EmojiCloseEvent = {
-  reason: 'escape' | 'click-outside' | 'select' | 'manual' | 'backspace';
+  reason:
+    | 'escape'
+    | 'click-outside'
+    | 'select'
+    | 'manual'
+    | 'backspace'
+    /** The text under the caret no longer matches a trigger (caret moved, trigger deleted, …) */
+    | 'no-match';
 };
 
 export type EmojiQueryChangeEvent = {
@@ -177,27 +198,41 @@ export type UseEmojiDropdownReturn = {
     setFloating: (el: HTMLElement | null) => void;
     setReference: (virtualEl: {
       getBoundingClientRect: () => DOMRect;
-      getClientRects?: () => DOMRectList;
+      getClientRects?: () => DOMRectList | DOMRect[];
     }) => void;
   };
   floatingStyles: React.CSSProperties;
+  /**
+   * Element the dropdown should be portaled into to escape ancestors with
+   * `overflow`/`transform`. `null` during SSR.
+   */
+  portalRoot: HTMLElement | null;
 };
 
 // Editor extension
+
+export type EmojiOpenParams = {
+  trigger: EmojiTrigger;
+  targetRect: EmojiTargetRect;
+  triggerRange: EmojiState['triggerRange'];
+  /** Initial query, when the trigger is opened from already-typed text */
+  query?: string;
+};
 
 export type EmojiEditor = {
   emoji: {
     state: EmojiState;
     setState: (state: Partial<EmojiState>) => void;
-    open: (params: {
-      trigger: EmojiTrigger;
-      targetRect: EmojiTargetRect;
-      triggerRange: EmojiState['triggerRange'];
-    }) => void;
+    open: (params: EmojiOpenParams) => void;
     close: (reason?: EmojiCloseEvent['reason']) => void;
     setQuery: (query: string) => void;
     /** Set by useEmojiDropdown hook — inserts the currently selected emoji */
     selectCurrentItem: (() => void) | null;
+    /**
+     * Set while an emoji is being inserted programmatically so the text sync
+     * ignores the intermediate Slate states it produces.
+     */
+    isApplying: boolean;
   };
 };
 

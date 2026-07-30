@@ -37,7 +37,18 @@ export type MentionTrigger = {
 
 export type MentionTargetRect = {
   domRect: DOMRect;
-  clientRects: DOMRectList;
+  /**
+   * Rects passed to floating-ui's `inline()` middleware. A real `DOMRectList`
+   * when it comes straight from a DOM Range, a plain array when the rect had to
+   * be synthesized (WebKit returns no rects for collapsed ranges).
+   */
+  clientRects: DOMRectList | DOMRect[];
+};
+
+export type MentionTriggerRange = {
+  blockId: string;
+  path: number[];
+  startOffset: number;
 };
 
 export type MentionState = {
@@ -50,11 +61,13 @@ export type MentionState = {
   /** Position for the dropdown */
   targetRect: MentionTargetRect | null;
   /** The range where trigger was typed (for replacement) */
-  triggerRange: {
-    blockId: string;
-    path: number[];
-    startOffset: number;
-  } | null;
+  triggerRange: MentionTriggerRange | null;
+  /**
+   * A trigger range the user explicitly dismissed (Escape / click outside).
+   * The text sync will not re-open the dropdown for this exact range, otherwise
+   * the still-matching `@query` text would immediately re-open it.
+   */
+  dismissedRange: MentionTriggerRange | null;
 };
 
 export const INITIAL_MENTION_STATE: MentionState = {
@@ -63,6 +76,7 @@ export const INITIAL_MENTION_STATE: MentionState = {
   trigger: null,
   targetRect: null,
   triggerRange: null,
+  dismissedRange: null,
 };
 
 export type MentionPluginOptions<TMeta = Record<string, unknown>> = {
@@ -137,7 +151,14 @@ export type MentionOpenEvent = {
 };
 
 export type MentionCloseEvent = {
-  reason: 'escape' | 'click-outside' | 'select' | 'manual' | 'backspace';
+  reason:
+    | 'escape'
+    | 'click-outside'
+    | 'select'
+    | 'manual'
+    | 'backspace'
+    /** The text under the caret no longer matches a trigger (caret moved, trigger deleted, …) */
+    | 'no-match';
 };
 
 export type MentionQueryChangeEvent = {
@@ -179,10 +200,16 @@ export type UseMentionDropdownReturn<TMeta = Record<string, unknown>> = {
     setFloating: (el: HTMLElement | null) => void;
     setReference: (virtualEl: {
       getBoundingClientRect: () => DOMRect;
-      getClientRects?: () => DOMRectList;
+      getClientRects?: () => DOMRectList | DOMRect[];
     }) => void;
   };
   floatingStyles: React.CSSProperties;
+  /**
+   * Element the dropdown should be portaled into. Rendering the dropdown inline
+   * lets any ancestor with `overflow`/`transform` clip it — which is what hides
+   * it inside scrollable chat composers on mobile. `null` during SSR.
+   */
+  portalRoot: HTMLElement | null;
 };
 
 export type MentionRenderProps<TMeta = Record<string, unknown>> = {
@@ -203,19 +230,28 @@ export type MentionItemRenderProps<TMeta = Record<string, unknown>> = {
   onSelect: () => void;
 };
 
+export type MentionOpenParams = {
+  trigger: MentionTrigger;
+  targetRect: MentionTargetRect;
+  triggerRange: MentionState['triggerRange'];
+  /** Initial query, when the trigger is opened from already-typed text */
+  query?: string;
+};
+
 export type MentionEditor = {
   mentions: {
     state: MentionState;
     setState: (state: Partial<MentionState>) => void;
-    open: (params: {
-      trigger: MentionTrigger;
-      targetRect: MentionTargetRect;
-      triggerRange: MentionState['triggerRange'];
-    }) => void;
+    open: (params: MentionOpenParams) => void;
     close: (reason?: MentionCloseEvent['reason']) => void;
     setQuery: (query: string) => void;
     /** Set by useMentionDropdown hook — inserts the currently selected mention */
     selectCurrentItem: (() => void) | null;
+    /**
+     * Set while a mention is being inserted programmatically so the text sync
+     * ignores the intermediate Slate states it produces.
+     */
+    isApplying: boolean;
   };
 }
 

@@ -23,8 +23,13 @@ export const EmojiItem = ({ item, selected, onSelect, onMouseEnter }: EmojiItemP
       type="button"
       onClick={selectEmoji}
       onMouseEnter={onMouseEnter}
+      // A tap would otherwise blur the contenteditable before `onClick` runs,
+      // dismissing the keyboard and dropping the Slate selection.
+      onPointerDown={(e) => e.preventDefault()}
+      onMouseDown={(e) => e.preventDefault()}
       className={cn(
         'w-full flex items-center gap-2.5 px-2 py-1.5 text-left rounded-sm transition-colors',
+        'touch-manipulation [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:py-2',
         'hover:bg-accent hover:text-accent-foreground',
         'focus:outline-none focus:bg-accent focus:text-accent-foreground',
         selected && 'bg-accent text-accent-foreground',
