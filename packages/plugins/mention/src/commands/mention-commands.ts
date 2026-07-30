@@ -1,6 +1,6 @@
 import type { YooEditor, YooptaPathIndex } from '@yoopta/editor';
 import { Blocks, generateId } from '@yoopta/editor';
-import { Editor, Element, Transforms } from 'slate';
+import { Editor, Element, Node, Path, Range, Text, Transforms } from 'slate';
 
 import type {
   MentionCloseEvent,
@@ -11,23 +11,9 @@ import type {
   MentionState,
   MentionTargetRect,
   MentionTrigger,
+  MentionYooEditor,
 } from '../types';
 import { INITIAL_MENTION_STATE } from '../types';
-
-// Extended editor type with mentions support (internal use only)
-type MentionYooEditor = YooEditor & {
-  mentions: {
-    state: MentionState;
-    setState: (state: Partial<MentionState>) => void;
-    open: (params: {
-      trigger: MentionTrigger;
-      targetRect: MentionTargetRect;
-      triggerRange: MentionState['triggerRange'];
-    }) => void;
-    close: (reason?: MentionCloseEvent['reason']) => void;
-    setQuery: (query: string) => void;
-  };
-};
 
 // Helper to safely access mentions state
 function getMentionEditor(editor: YooEditor): MentionYooEditor {
@@ -139,22 +125,39 @@ export const MentionCommands: MentionCommandsType = {
     const slateEditor = Blocks.getBlockSlate(editor, { id: blockId });
     if (!slateEditor) return;
 
-    // Calculate the end offset (current cursor position)
     const trigger = state.trigger;
     const query = state.query;
     const triggerLength = trigger?.char.length ?? 1;
-    const endOffset = startOffset + triggerLength + query.length;
 
-    // Select the range from trigger start to current position
-    Transforms.select(slateEditor, {
-      anchor: { path, offset: startOffset },
-      focus: { path, offset: endOffset },
-    });
+    // Resolve the text node the trigger lives in. Bail out instead of throwing
+    // if the document moved on since the dropdown opened.
+    let node: Node;
+    try {
+      node = Node.get(slateEditor, path);
+    } catch {
+      mentionEditor.mentions.close('no-match');
+      return;
+    }
+    if (!Text.isText(node) || startOffset > node.text.length) {
+      mentionEditor.mentions.close('no-match');
+      return;
+    }
 
-    // Delete the trigger + query
-    Transforms.delete(slateEditor);
+    // Prefer the live caret position over the tracked query length — they can
+    // diverge when an IME replaces a whole word at once.
+    const caretOffset =
+      slateEditor.selection &&
+      Range.isCollapsed(slateEditor.selection) &&
+      Path.equals(slateEditor.selection.anchor.path, path)
+        ? slateEditor.selection.anchor.offset
+        : startOffset + triggerLength + query.length;
 
-    // Create and insert mention node
+    const endOffset = Math.min(
+      Math.max(caretOffset, startOffset + triggerLength),
+      node.text.length,
+    );
+
+    // Create the mention node up front so a failed transform leaves no partial state
     const mentionNode: MentionElement = {
       id: generateId(),
       type: 'mention',
@@ -169,7 +172,26 @@ export const MentionCommands: MentionCommandsType = {
       },
     };
 
-    Transforms.insertNodes(slateEditor, mentionNode);
+    // Suppress the text sync: the intermediate states below would otherwise be
+    // read as "the trigger text changed" and re-open the dropdown.
+    mentionEditor.mentions.isApplying = true;
+
+    try {
+      Editor.withoutNormalizing(slateEditor, () => {
+        // Select the range from trigger start to current position
+        Transforms.select(slateEditor, {
+          anchor: { path, offset: startOffset },
+          focus: { path, offset: endOffset },
+        });
+
+        // Delete the trigger + query
+        Transforms.delete(slateEditor);
+
+        Transforms.insertNodes(slateEditor, mentionNode);
+      });
+    } finally {
+      mentionEditor.mentions.isApplying = false;
+    }
 
     // Close dropdown
     const pluginOptions = editor.plugins.Mention?.options as MentionPluginOptions | undefined;

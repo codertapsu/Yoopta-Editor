@@ -6,11 +6,18 @@
 
 import type { YooEditor } from "@yoopta/editor";
 
-import type { MentionCloseEvent, MentionPluginOptions, MentionState, MentionTargetRect, MentionTrigger, MentionYooEditor } from "../types";
+import type { MentionCloseEvent, MentionOpenParams, MentionPluginOptions, MentionState, MentionYooEditor } from "../types";
 import { INITIAL_MENTION_STATE } from "../types";
 
 // Type-safe emit helper for mention events
 type MentionEmit = (event: string, payload: unknown) => void;
+
+/**
+ * Close reasons that mean "the user does not want this dropdown right now".
+ * The trigger range is remembered so the text sync does not immediately
+ * re-open the dropdown for the same still-matching `@query` text.
+ */
+const DISMISSING_REASONS: MentionCloseEvent['reason'][] = ['escape', 'click-outside', 'manual'];
 
 // [TODO] - add throw error if this extenstion not applied to editor instance
 export function withMentions(editor: YooEditor): MentionYooEditor {
@@ -29,24 +36,22 @@ export function withMentions(editor: YooEditor): MentionYooEditor {
     setState: (newState: Partial<MentionState>) => {
       state = { ...state, ...newState };
     },
-    open: (params: {
-      trigger: MentionTrigger;
-      targetRect: MentionTargetRect;
-      triggerRange: MentionState['triggerRange'];
-    }) => {
+    open: (params: MentionOpenParams) => {
       const pluginOptions = plugins.Mention?.options as MentionPluginOptions | undefined;
+      const query = params.query ?? '';
 
       state = {
         isOpen: true,
-        query: '',
+        query,
         trigger: params.trigger,
         targetRect: params.targetRect,
         triggerRange: params.triggerRange,
+        dismissedRange: null,
       };
 
       emit('mention:open', {
         trigger: params.trigger,
-        query: '',
+        query,
         targetRect: params.targetRect,
       });
 
@@ -57,7 +62,12 @@ export function withMentions(editor: YooEditor): MentionYooEditor {
     close: (reason: MentionCloseEvent['reason'] = 'manual') => {
       const pluginOptions = plugins.Mention?.options as MentionPluginOptions | undefined;
 
-      state = { ...INITIAL_MENTION_STATE };
+      const shouldRemember = DISMISSING_REASONS.includes(reason) && state.triggerRange !== null;
+
+      state = {
+        ...INITIAL_MENTION_STATE,
+        dismissedRange: shouldRemember ? state.triggerRange : null,
+      };
 
       emit('mention:close', { reason });
 
@@ -74,6 +84,7 @@ export function withMentions(editor: YooEditor): MentionYooEditor {
       });
     },
     selectCurrentItem: null,
+    isApplying: false,
   };
 
   return mentionEditor;

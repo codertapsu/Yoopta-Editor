@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useEmojiDropdown } from '@yoopta/emoji';
 
 import { EmojiItem } from './emoji-item';
@@ -23,6 +24,7 @@ export const EmojiDropdown = ({ maxHeight = 280, className }: EmojiDropdownProps
     selectItem,
     refs,
     floatingStyles,
+    portalRoot,
   } = useEmojiDropdown();
 
   const listRef = useRef<HTMLDivElement>(null);
@@ -40,12 +42,16 @@ export const EmojiDropdown = ({ maxHeight = 280, className }: EmojiDropdownProps
   if (!isOpen) return null;
   if (!loading && !error && items.length === 0 && !query) return null;
 
-  return (
+  const dropdown = (
     <div
       ref={refs.setFloating}
       style={floatingStyles}
+      // Keep the editor selection intact when the list is touched or clicked —
+      // losing focus on mobile collapses the keyboard before the tap resolves.
+      onPointerDown={(e) => e.preventDefault()}
+      onMouseDown={(e) => e.preventDefault()}
       className={cn(
-        'z-50 min-w-[200px] max-w-[280px] rounded-md border bg-popover text-popover-foreground shadow-md',
+        'z-50 flex flex-col min-w-[200px] max-w-[280px] rounded-md border bg-popover text-popover-foreground shadow-md',
         'animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
         className,
       )}>
@@ -117,4 +123,9 @@ export const EmojiDropdown = ({ maxHeight = 280, className }: EmojiDropdownProps
       )}
     </div>
   );
+
+  // Portal to the document body so ancestors with `overflow` or `transform`
+  // cannot clip the dropdown. Falls back to inline rendering before the portal
+  // target is resolved (SSR / first paint).
+  return portalRoot ? createPortal(dropdown, portalRoot) : dropdown;
 };

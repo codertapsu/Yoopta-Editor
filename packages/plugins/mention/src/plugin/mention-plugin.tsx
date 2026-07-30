@@ -1,16 +1,15 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { PluginElementRenderProps } from '@yoopta/editor';
 import { YooptaPlugin, generateId } from '@yoopta/editor';
-import { Node, Range, Text } from 'slate';
 
 import { MentionCommands } from '../commands/mention-commands';
+import { installMentionSync } from '../extenstions/withMentionSync';
 import type {
   MentionElementMap,
   MentionElementProps,
   MentionPluginOptions,
   MentionYooEditor,
 } from '../types';
-import { getCaretRectFromSlate, getTriggers, shouldTriggerActivate } from '../utils';
 
 const DefaultMentionRender = (props: PluginElementRenderProps) => {
   const { element, attributes, children } = props;
@@ -94,119 +93,62 @@ const Mention = new YooptaPlugin<MentionElementMap, MentionPluginOptions>({
     return slate;
   },
   events: {
+    /**
+     * Trigger detection and query tracking are NOT done here.
+     *
+     * They are derived from the document text by `installMentionSync`, because
+     * virtual keyboards (Android IME, iOS autocorrect, voice dictation) do not
+     * report the typed character in `keydown` — `event.key` arrives as
+     * `'Unidentified'` with `keyCode: 229`. This handler only deals with the
+     * physical-keyboard interactions that have no text equivalent.
+     */
     onKeyDown: (baseEditor, slate, options) => (event: ReactKeyboardEvent) => {
-      // Cast to MentionYooEditor for full type support
       const editor = baseEditor as MentionYooEditor;
+      if (!editor.mentions) return;
+
+      const currentBlock = options.currentBlock;
+      if (currentBlock) installMentionSync(editor, slate, currentBlock.id);
+
+      const mentionState = editor.mentions.state;
+      if (!mentionState.isOpen) return;
 
       const pluginOptions = baseEditor.plugins.Mention?.options as MentionPluginOptions | undefined;
-      const triggers = getTriggers(pluginOptions);
-      const mentionState = editor.mentions.state;
+      const { key } = event;
 
-      // Get current block from options (more reliable than editor.path.current)
+      // Enter inserts the currently selected mention and prevents block handlers
+      if (key === 'Enter' && !event.nativeEvent.isComposing) {
+        event.preventDefault();
+        if (editor.mentions.selectCurrentItem) {
+          editor.mentions.selectCurrentItem();
+        }
+        return;
+      }
+
+      // Arrow keys navigate the dropdown — prevent block handlers from running
+      if (key === 'ArrowUp' || key === 'ArrowDown') {
+        event.preventDefault();
+        return;
+      }
+
+      // Escape closes dropdown
+      if (key === 'Escape' && pluginOptions?.closeOnEscape !== false) {
+        event.preventDefault();
+        editor.mentions.close('escape');
+      }
+    },
+
+    /**
+     * Primary hook for mobile. `beforeinput` fires for every input method —
+     * IME composition, autocorrect replacement, dictation, paste — and runs
+     * before Slate applies the change, so wiring the text sync here guarantees
+     * the following `onChange` is observed.
+     */
+    onDOMBeforeInput: (baseEditor, slate, options) => () => {
+      const editor = baseEditor as MentionYooEditor;
+      if (!editor.mentions) return;
+
       const currentBlock = options.currentBlock;
-
-      // Check if any trigger char was typed
-      for (const trigger of triggers) {
-        // Check for single char trigger match
-        if (trigger.char.length === 1 && event.key === trigger.char) {
-          // Only handle if selection is collapsed (cursor, not range)
-          if (slate.selection && Range.isCollapsed(slate.selection)) {
-            const currentNode = Node.get(slate, slate.selection.anchor.path);
-            if (!Text.isText(currentNode)) continue;
-
-            const text = currentNode.text;
-            const cursorOffset = slate.selection.anchor.offset;
-
-            const charBefore = text[cursorOffset - 1] ?? '';
-            const charAfter = text[cursorOffset] ?? '';
-
-            // Check if trigger should activate
-            if (!shouldTriggerActivate(trigger, charBefore, charAfter)) continue;
-
-            if (!currentBlock) continue;
-
-            // Get caret position for dropdown positioning
-            // Get position BEFORE @ is inserted (current cursor position)
-            const caretRect = getCaretRectFromSlate(slate);
-            if (!caretRect) continue;
-
-            // Open dropdown immediately (before @ is inserted)
-            // The @ character will be inserted by Slate's default behavior
-            editor.mentions.open({
-              trigger,
-              targetRect: caretRect,
-              triggerRange: {
-                blockId: currentBlock.id,
-                path: slate.selection.anchor.path,
-                startOffset: cursorOffset, // Position where @ will be inserted
-              },
-            });
-
-            // Don't prevent default - let the @ character be inserted
-            return;
-          }
-        }
-        // TODO: Handle multi-char triggers like '[['
-      }
-
-      // Handle keys when dropdown is open
-      if (mentionState.isOpen) {
-        const { key } = event;
-
-        // Enter inserts the currently selected mention and prevents block handlers
-        if (key === 'Enter') {
-          event.preventDefault();
-          if (editor.mentions.selectCurrentItem) {
-            editor.mentions.selectCurrentItem();
-          }
-          return;
-        }
-
-        // Arrow keys navigate the dropdown — prevent block handlers from running
-        if (key === 'ArrowUp' || key === 'ArrowDown') {
-          event.preventDefault();
-          return;
-        }
-
-        // Escape closes dropdown
-        if (key === 'Escape' && pluginOptions?.closeOnEscape !== false) {
-          event.preventDefault();
-          editor.mentions.close('escape');
-          return;
-        }
-
-        // Backspace updates query
-        if (key === 'Backspace') {
-          const newQuery = mentionState.query.slice(0, -1);
-
-          // If query becomes empty and we backspace again, close
-          if (mentionState.query.length === 0) {
-            editor.mentions.close('backspace');
-            return;
-          }
-
-          editor.mentions.setQuery(newQuery);
-          return;
-        }
-
-        // Regular characters add to query
-        if (key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
-          const currentTrigger = mentionState.trigger;
-
-          // Check if spaces are allowed
-          if (key === ' ' && !currentTrigger?.allowSpaces) {
-            editor.mentions.close('manual');
-            return;
-          }
-
-          // Don't add trigger char to query
-          if (currentTrigger && key === currentTrigger.char) {
-            return;
-          }
-
-          editor.mentions.setQuery(mentionState.query + key);
-        }
-      }
+      if (currentBlock) installMentionSync(editor, slate, currentBlock.id);
     },
   },
 });
