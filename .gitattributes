@@ -1,0 +1,3 @@
+# Fork release tarballs — never touch the bytes, CRLF conversion corrupts them
+dist-packages/*.tgz binary
+*.tgz binary

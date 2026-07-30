@@ -1,0 +1,87 @@
+name: Fork release
+
+# Rebuilds every package and commits the tarballs to dist-packages/ so apps can
+# install them from raw.githubusercontent.com.
+#
+# Run manually from the Actions tab. `bump_revision` is on by default because
+# overwriting an already-published tarball URL breaks consumer installs with
+# EINTEGRITY — a new revision means a new filename.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_revision:
+        description: 'Bump the fork revision before packing'
+        type: boolean
+        default: true
+      revision:
+        description: 'Set an explicit revision instead (e.g. 1 after an upstream version bump)'
+        type: string
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fork-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Test
+        run: yarn test:run
+        continue-on-error: true
+
+      - name: Set revision
+        run: |
+          if [ -n "${{ inputs.revision }}" ]; then
+            yarn fork:revision "${{ inputs.revision }}"
+          elif [ "${{ inputs.bump_revision }}" = "true" ]; then
+            yarn fork:revision
+          else
+            echo "Keeping the current revision — this will overwrite existing tarball URLs."
+          fi
+
+      - name: Build and pack
+        run: yarn fork:pack
+
+      - name: Summary
+        run: |
+          VERSION=$(node -p "require('./dist-packages/manifest.json').packages[0].version")
+          {
+            echo "### Fork release \`$VERSION\`"
+            echo
+            echo "Add to your app's package.json:"
+            echo
+            echo '```json'
+            node -p "JSON.stringify(require('./dist-packages/dependencies.json').dependencies, null, 2)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit tarballs
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist-packages fork.config.json
+          if git diff --staged --quiet; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          VERSION=$(node -p "require('./dist-packages/manifest.json').packages[0].version")
+          git commit -m "release: $VERSION"
+          git push

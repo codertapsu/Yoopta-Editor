@@ -1,0 +1,16 @@
+{
+  "$comment": [
+    "Configuration for the codertapsu fork's tarball releases.",
+    "Bump `revision` for every release built from the same upstream version.",
+    "The published version becomes <upstreamVersion>-<tag>.<revision>, e.g. 6.0.5-codertapsu.1.",
+    "IMPORTANT: never overwrite an already-published tarball URL — npm caches by URL and",
+    "lockfiles pin an integrity hash, so a changed file behind the same name breaks installs.",
+    "Bumping `revision` changes the filename and sidesteps that entirely."
+  ],
+  "tag": "codertapsu",
+  "revision": 1,
+  "repository": "codertapsu/Yoopta-Editor",
+  "branch": "master",
+  "outDir": "dist-packages",
+  "baseUrl": "https://raw.githubusercontent.com/codertapsu/Yoopta-Editor/master/dist-packages"
+}
