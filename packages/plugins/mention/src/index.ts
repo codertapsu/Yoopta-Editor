@@ -14,6 +14,8 @@ export type {
   // State types
   MentionTargetRect,
   MentionState,
+  MentionTriggerRange,
+  MentionOpenParams,
   // Plugin options
   MentionPluginOptions,
   // Event types
@@ -40,5 +42,15 @@ export type { MentionCommandsType } from './commands/mention-commands';
 export { useMentionDropdown, useMentionState, useMentionTriggerActive } from './hooks';
 
 export { withMentions } from './extenstions/withMentions';
+export { installMentionSync, syncMentionState } from './extenstions/withMentionSync';
+
+export {
+  findTriggerMatch,
+  getMentionTargetRect,
+  getTriggers,
+  measureTriggerRect,
+  shouldTriggerActivate,
+} from './utils';
+export type { MentionTriggerMatch } from './utils';
 
 export default Mention;

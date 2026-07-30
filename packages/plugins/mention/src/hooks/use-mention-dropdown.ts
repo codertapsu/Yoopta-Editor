@@ -5,6 +5,7 @@ import {
   inline,
   offset,
   shift,
+  size,
   useFloating,
 } from '@floating-ui/react';
 import { useYooptaEditor, useYooptaPluginOptions } from '@yoopta/editor';
@@ -15,10 +16,17 @@ import type {
   MentionItem,
   MentionPluginOptions,
   MentionState,
+  MentionTargetRect,
   UseMentionDropdownOptions,
   UseMentionDropdownReturn,
 } from '../types';
 import { INITIAL_MENTION_STATE } from '../types';
+import { measureTriggerRect } from '../utils';
+
+const EMPTY_RECT = { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 } as DOMRect;
+
+/** Minimum height worth showing before flipping to the other side of the caret */
+const MIN_DROPDOWN_HEIGHT = 120;
 
 /**
  * Hook for building mention dropdown UI
@@ -39,21 +47,51 @@ export function useMentionDropdown<TMeta = Record<string, unknown>>(
   // Track mention state from editor
   const [mentionState, setMentionState] = useState<MentionState>(INITIAL_MENTION_STATE);
 
+  // Portal target — resolved on the client only, so SSR output stays stable
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
+
   // Debounce timer ref
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastQueryRef = useRef<string>('');
+
+  // Last successfully measured anchor rect, reused when the caret is momentarily
+  // unmeasurable (mid-composition, block re-render, …)
+  const lastRectRef = useRef<MentionTargetRect | null>(null);
 
   // Debounce settings
   const debounceMs = options.debounceMs ?? pluginOptions?.debounceMs ?? 300;
   const minQueryLength = pluginOptions?.minQueryLength ?? 0;
 
-  // Floating UI setup
-  const { refs, floatingStyles } = useFloating({
+  // Floating UI setup.
+  // `fixed` strategy keeps the dropdown positioned against the viewport instead
+  // of an offset parent, so ancestors with `overflow`/`transform` (chat
+  // composers, scroll containers) cannot displace it.
+  const { refs, floatingStyles, update } = useFloating({
     placement: 'bottom-start',
+    strategy: 'fixed',
     open: mentionState.isOpen,
-    middleware: [inline(), flip(), shift({ padding: 8 }), offset(4)],
+    middleware: [
+      inline(),
+      offset(4),
+      flip({ fallbackPlacements: ['top-start', 'bottom', 'top'], padding: 8 }),
+      shift({ padding: 8 }),
+      size({
+        padding: 8,
+        apply({ availableHeight, elements }) {
+          // Clamp to the space actually left over — on mobile the on-screen
+          // keyboard eats most of the viewport below the caret.
+          Object.assign(elements.floating.style, {
+            maxHeight: `${Math.max(MIN_DROPDOWN_HEIGHT, availableHeight)}px`,
+          });
+        },
+      }),
+    ],
     whileElementsMounted: autoUpdate,
   });
+
+  useEffect(() => {
+    setPortalRoot(editor.refElement?.ownerDocument?.body ?? document.body);
+  }, [editor.refElement]);
 
   // Sync editor mention state to local state
   useEffect(() => {
@@ -62,6 +100,7 @@ export function useMentionDropdown<TMeta = Record<string, unknown>>(
       setSelectedIndex(0);
       setItems([]);
       setError(null);
+      lastQueryRef.current = '';
     };
 
     const handleMentionClose = () => {
@@ -69,6 +108,7 @@ export function useMentionDropdown<TMeta = Record<string, unknown>>(
       setItems([]);
       setSelectedIndex(0);
       setError(null);
+      lastRectRef.current = null;
     };
 
     const handleQueryChange = () => {
@@ -86,15 +126,49 @@ export function useMentionDropdown<TMeta = Record<string, unknown>>(
     };
   }, [editor]);
 
-  // Update floating reference when target changes
+  // Anchor the dropdown to a *live* virtual element.
+  //
+  // Re-measuring on every reposition (rather than caching the rect captured
+  // when the trigger was typed) is what keeps the dropdown attached to the
+  // caret while the mobile keyboard opens, the page scrolls, or the block
+  // reflows — all of which happen right after typing `@` on a phone.
+  const { triggerRange, targetRect } = mentionState;
+
   useEffect(() => {
-    if (mentionState.targetRect) {
-      refs.setReference({
-        getBoundingClientRect: () => mentionState.targetRect!.domRect,
-        getClientRects: () => mentionState.targetRect!.clientRects,
-      });
-    }
-  }, [mentionState.targetRect, refs]);
+    if (!triggerRange) return;
+
+    lastRectRef.current = targetRect ?? lastRectRef.current;
+
+    const measure = (): MentionTargetRect | null => {
+      const live = measureTriggerRect(editor, triggerRange);
+      if (live) lastRectRef.current = live;
+      return lastRectRef.current;
+    };
+
+    refs.setReference({
+      getBoundingClientRect: () => measure()?.domRect ?? EMPTY_RECT,
+      getClientRects: () => measure()?.clientRects ?? [],
+    });
+  }, [triggerRange, targetRect, editor, refs]);
+
+  // The visual viewport changes when the on-screen keyboard opens or the user
+  // pinch-zooms. `autoUpdate` does not observe it, so the dropdown would stay
+  // where the caret used to be.
+  useEffect(() => {
+    if (!mentionState.isOpen) return;
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const viewport = window.visualViewport;
+    const handleViewportChange = () => update();
+
+    viewport.addEventListener('resize', handleViewportChange);
+    viewport.addEventListener('scroll', handleViewportChange);
+
+    return () => {
+      viewport.removeEventListener('resize', handleViewportChange);
+      viewport.removeEventListener('scroll', handleViewportChange);
+    };
+  }, [mentionState.isOpen, update]);
 
   // Fetch items when query changes
   useEffect(() => {
@@ -184,6 +258,8 @@ export function useMentionDropdown<TMeta = Record<string, unknown>>(
     if (!mentionState.isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.isComposing) return;
+
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
@@ -211,12 +287,14 @@ export function useMentionDropdown<TMeta = Record<string, unknown>>(
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [mentionState.isOpen, items, selectedIndex, close]);
 
-  // Click outside to close
+  // Click/tap outside to close.
+  // `pointerdown` covers mouse, touch and pen — `mousedown` alone never fires
+  // for the synthetic tap sequence on some mobile browsers.
   useEffect(() => {
     if (!mentionState.isOpen) return;
     if (pluginOptions?.closeOnClickOutside === false) return;
 
-    const handleClickOutside = (e: MouseEvent) => {
+    const handlePointerOutside = (e: Event) => {
       const floatingEl = refs.floating.current;
       if (floatingEl && !floatingEl.contains(e.target as Node)) {
         close('click-outside');
@@ -225,12 +303,12 @@ export function useMentionDropdown<TMeta = Record<string, unknown>>(
 
     // Delay to avoid immediate close
     const timer = setTimeout(() => {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('pointerdown', handlePointerOutside);
     }, 0);
 
     return () => {
       clearTimeout(timer);
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('pointerdown', handlePointerOutside);
     };
   }, [mentionState.isOpen, refs.floating, close, pluginOptions?.closeOnClickOutside]);
 
@@ -260,6 +338,7 @@ export function useMentionDropdown<TMeta = Record<string, unknown>>(
         setReference: refs.setReference,
       },
       floatingStyles,
+      portalRoot,
     }),
     [
       mentionState.isOpen,
@@ -274,6 +353,7 @@ export function useMentionDropdown<TMeta = Record<string, unknown>>(
       refs.setFloating,
       refs.setReference,
       floatingStyles,
+      portalRoot,
     ],
   );
 }
