@@ -29,7 +29,12 @@
     "changeset": "changeset",
     "version": "changeset version",
     "release": "yarn clean && turbo run build --filter=!next-app-example && changeset publish",
-    "prepare": "husky"
+    "prepare": "husky",
+    "fork:pack": "node scripts/pack-fork.mjs",
+    "fork:pack:quick": "node scripts/pack-fork.mjs --skip-build",
+    "fork:revision": "node scripts/set-fork-revision.mjs",
+    "fork:sync": "node scripts/sync-upstream.mjs",
+    "fork:sync:check": "node scripts/sync-upstream.mjs --check"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.4",
