@@ -5,6 +5,9 @@ import { fileURLToPath } from 'node:url';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
+/** The package whose version defines the release tag for the whole set. */
+export const CANONICAL_PACKAGE = '@yoopta/editor';
+
 export function readJSON(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
@@ -12,7 +15,7 @@ export function readJSON(path) {
 export function loadForkConfig() {
   const config = readJSON(join(ROOT, 'fork.config.json'));
 
-  for (const key of ['tag', 'revision', 'outDir', 'baseUrl']) {
+  for (const key of ['tag', 'revision', 'repository', 'outDir', 'urlStrategy']) {
     if (config[key] === undefined) {
       throw new Error(`fork.config.json is missing "${key}"`);
     }
@@ -26,13 +29,22 @@ export function loadForkConfig() {
     throw new Error(`fork.config.json "revision" must be an integer >= 1, got ${config.revision}`);
   }
 
+  if (!['release', 'raw'].includes(config.urlStrategy)) {
+    throw new Error(`fork.config.json "urlStrategy" must be "release" or "raw", got "${config.urlStrategy}"`);
+  }
+
+  if (config.urlStrategy === 'raw' && !config.branch) {
+    throw new Error('fork.config.json needs "branch" when urlStrategy is "raw"');
+  }
+
   return config;
 }
 
 /**
  * Every publishable workspace package, in dependency-safe build order.
  * Order matters: rollup resolves `@yoopta/editor` types from its built `dist`,
- * and turbo cannot infer the graph because intra-repo links are peerDependencies.
+ * and turbo cannot infer the graph because intra-repo links are peerDependencies,
+ * which are not workspace-graph edges.
  */
 export const BUILD_LAYERS = [
   ['packages/core/editor'],
@@ -42,7 +54,7 @@ export const BUILD_LAYERS = [
 ];
 
 export function listPackages() {
-  const dirs = execFileSync(
+  const files = execFileSync(
     'find',
     ['packages', '-name', 'package.json', '-not', '-path', '*/node_modules/*', '-not', '-path', '*/dist/*'],
     { cwd: ROOT, encoding: 'utf8' },
@@ -51,7 +63,7 @@ export function listPackages() {
     .split('\n')
     .filter(Boolean);
 
-  return dirs
+  return files
     .map((file) => {
       const dir = dirname(file);
       const pkg = readJSON(join(ROOT, file));
@@ -76,8 +88,41 @@ export function tarballFileName(packageName, version) {
   return `${tarballBaseName(packageName)}-${version}.tgz`;
 }
 
-export function tarballUrl(packageName, version, config) {
-  return `${config.baseUrl.replace(/\/$/, '')}/${tarballFileName(packageName, version)}`;
+/**
+ * The git tag / GitHub release name for this build, derived from the canonical
+ * package so every tarball in a release shares one identifier.
+ */
+export function releaseTag(config, packages = listPackages()) {
+  const canonical = packages.find((p) => p.name === CANONICAL_PACKAGE);
+  if (!canonical) {
+    throw new Error(`Cannot derive a release tag: ${CANONICAL_PACKAGE} not found`);
+  }
+
+  return `${config.releaseTagPrefix ?? 'v'}${forkVersion(canonical.version, config)}`;
+}
+
+export function tarballUrl(packageName, version, config, tag) {
+  const file = tarballFileName(packageName, version);
+
+  if (config.urlStrategy === 'raw') {
+    return `https://raw.githubusercontent.com/${config.repository}/${config.branch}/${config.outDir}/${file}`;
+  }
+
+  return `https://github.com/${config.repository}/releases/download/${tag}/${file}`;
+}
+
+export function gitInfo() {
+  const git = (...args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
+
+  try {
+    return {
+      commit: git('rev-parse', 'HEAD'),
+      shortCommit: git('rev-parse', '--short', 'HEAD'),
+      dirty: git('status', '--porcelain').length > 0,
+    };
+  } catch {
+    return { commit: null, shortCommit: null, dirty: false };
+  }
 }
 
 export function run(command, args, options = {}) {
@@ -87,4 +132,18 @@ export function run(command, args, options = {}) {
     encoding: 'utf8',
     ...options,
   });
+}
+
+/** Runs a command, returning null instead of throwing when it fails. */
+export function tryRun(command, args, options = {}) {
+  try {
+    return execFileSync(command, args, {
+      cwd: ROOT,
+      stdio: 'pipe',
+      encoding: 'utf8',
+      ...options,
+    }).trim();
+  } catch {
+    return null;
+  }
 }
