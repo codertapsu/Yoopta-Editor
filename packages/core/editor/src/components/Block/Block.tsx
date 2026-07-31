@@ -14,6 +14,9 @@ type BlockProps = {
 
 const perfStyles: CSSProperties = {
   contentVisibility: 'auto',
+  // Without an intrinsic size estimate, blocks skipped by content-visibility
+  // collapse toward zero height, making the scrollbar jump as they render in.
+  containIntrinsicSize: 'auto 42px',
 };
 
 const Block = memo(({ children, block, blockId }: BlockProps) => {

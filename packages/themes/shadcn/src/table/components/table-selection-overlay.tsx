@@ -228,7 +228,7 @@ export const TableSelectionOverlay = ({ blockId }: TableSelectionOverlayProps) =
             <Button
               variant="secondary"
               size="icon"
-              className="h-4 w-4 rounded-full shadow-lg bg-primary hover:bg-primary/90"
+              className="h-4 w-4 [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:w-8 rounded-full shadow-lg bg-primary hover:bg-primary/90"
               onMouseDown={(e) => e.preventDefault()}>
               <MoreVertical className="h-3 w-3 text-primary-foreground" />
             </Button>

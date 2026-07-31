@@ -77,10 +77,11 @@ export const CarouselCommands: CarouselCommands = {
       match: (n) => Element.isElement(n) && (n as SlateElement).type === 'carousel-list',
     });
 
+    // Items may live in an optional carousel-list wrapper (legacy documents)
+    // or directly under the container — the plugin's element tree creates them
+    // as direct children, so bailing out here made every command a no-op.
     const listEntry = Array.from(listNodes)[0];
-    if (!listEntry) return;
-
-    const [, listPath] = listEntry;
+    const listPath = listEntry ? listEntry[1] : containerPath;
 
     // Find all carousel-list-item elements
     const carouselNodes = Editor.nodes<SlateElement>(slate, {
@@ -222,10 +223,11 @@ export const CarouselCommands: CarouselCommands = {
       match: (n) => Element.isElement(n) && (n as SlateElement).type === 'carousel-list',
     });
 
+    // Items may live in an optional carousel-list wrapper (legacy documents)
+    // or directly under the container — the plugin's element tree creates them
+    // as direct children, so bailing out here made every command a no-op.
     const listEntry = Array.from(listNodes)[0];
-    if (!listEntry) return;
-
-    const [, listPath] = listEntry;
+    const listPath = listEntry ? listEntry[1] : containerPath;
 
     // Find all carousel-list-item elements
     const carouselNodes = Editor.nodes<SlateElement>(slate, {
@@ -300,10 +302,11 @@ export const CarouselCommands: CarouselCommands = {
       match: (n) => Element.isElement(n) && (n as SlateElement).type === 'carousel-list',
     });
 
+    // Items may live in an optional carousel-list wrapper (legacy documents)
+    // or directly under the container — the plugin's element tree creates them
+    // as direct children, so bailing out here made every command a no-op.
     const listEntry = Array.from(listNodes)[0];
-    if (!listEntry) return;
-
-    const [, listPath] = listEntry;
+    const listPath = listEntry ? listEntry[1] : containerPath;
 
     // Find all carousel-list-item elements
     const carouselNodes = Editor.nodes<SlateElement>(slate, {
@@ -390,10 +393,11 @@ export const CarouselCommands: CarouselCommands = {
       match: (n) => Element.isElement(n) && (n as SlateElement).type === 'carousel-list',
     });
 
+    // Items may live in an optional carousel-list wrapper (legacy documents)
+    // or directly under the container — the plugin's element tree creates them
+    // as direct children, so bailing out here made every command a no-op.
     const listEntry = Array.from(listNodes)[0];
-    if (!listEntry) return;
-
-    const [, listPath] = listEntry;
+    const listPath = listEntry ? listEntry[1] : containerPath;
 
     // Find all carousel-list-item elements
     const carouselNodes = Editor.nodes<SlateElement>(slate, {

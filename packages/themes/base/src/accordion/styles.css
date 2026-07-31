@@ -27,7 +27,9 @@
   font-size: 1rem;
   line-height: 1.5rem;
   cursor: pointer;
-  user-select: none;
+  /* The heading contains Slate-editable text — user-select: none blocked
+     caret placement, making the heading uneditable by tap or click. The
+     disclosure marker alone stays unselectable below. */
   background: transparent;
   border: none;
   width: 100%;
@@ -41,6 +43,10 @@
 .yoopta-accordion-list-item-heading::marker {
   display: none;
   content: '';
+}
+
+.yoopta-accordion-list-item-heading::-webkit-details-marker {
+  display: none;
 }
 
 .yoopta-accordion-list-item-heading::-webkit-details-marker {

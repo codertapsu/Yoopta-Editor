@@ -7,6 +7,7 @@ import {
   flip,
   offset,
   shift,
+  size,
   useDismiss,
   useFloating,
   useInteractions,
@@ -102,12 +103,29 @@ const ActionMenuListRoot = ({
     [isControlled, controlledOnOpenChange],
   );
 
+  // `fixed` keeps the menu positioned against the viewport, so ancestors with
+  // `overflow`/`transform` (scrollable containers, animated wrappers) cannot
+  // clip or displace it.
   const { refs, floatingStyles, context } = useFloating({
     elements: { reference: anchor },
     placement,
     open: isOpen,
     onOpenChange,
-    middleware: [flip(), shift(), offset(10)],
+    strategy: 'fixed',
+    middleware: [
+      flip(),
+      shift({ padding: 8 }),
+      offset(10),
+      size({
+        padding: 8,
+        apply({ availableHeight, elements }) {
+          Object.assign(elements.floating.style, {
+            maxHeight: `${Math.max(180, availableHeight)}px`,
+            overflowY: 'auto',
+          });
+        },
+      }),
+    ],
     whileElementsMounted: autoUpdate,
   });
 
@@ -257,6 +275,12 @@ const ActionMenuListContent = forwardRef<HTMLDivElement, ActionMenuListContentPr
             className={`yoopta-ui-action-menu-list-content yoopta-ui-action-menu-list-${view} ${className}`}
             style={floatingStyles}
             {...getFloatingProps({
+              // pointerdown as well as mousedown: on mobile the tap would
+              // otherwise blur the contenteditable before onClick runs
+              onPointerDown: (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              },
               onMouseDown: (e) => {
                 e.preventDefault();
                 e.stopPropagation();

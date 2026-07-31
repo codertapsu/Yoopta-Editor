@@ -4,7 +4,8 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -66,12 +67,25 @@ export const BlockDndContext = ({
     [draggedIds, editor.children],
   );
 
-  // Configure sensors
+  // Configure sensors.
+  //
+  // Mouse and touch are configured separately instead of one PointerSensor:
+  // a distance constraint alone loses the race against browser scrolling on
+  // touch — the page pans and fires pointercancel before the drag activates.
+  // Touch drags therefore require a long-press (delay), after which dnd-kit
+  // suppresses scrolling for the gesture; quick swipes still scroll normally.
+  // The handle itself also needs `touch-action: none` (see block-dnd.css).
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
         // Small distance to distinguish click from drag
         distance: 5,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 8,
       },
     }),
     useSensor(KeyboardSensor, {

@@ -23,9 +23,29 @@ const Accordion = new YooptaPlugin<AccordionElementMap>({
     <accordion-list render={(props) => <div {...props.attributes}>{props.children}</div>}>
       <accordion-list-item
         props={accordionListItemProps}
-        render={(props) => <details {...props.attributes}>{props.children}</details>}>
+        render={(props) => (
+          // `open` mirrors the persisted isExpanded prop — without it every
+          // item rendered collapsed regardless of state. The native
+          // summary-click toggle is suppressed (see below) so the DOM cannot
+          // drift from the document.
+          <details
+            {...props.attributes}
+            open={(props.element.props as AccordionListItemProps)?.isExpanded ?? true}>
+            {props.children}
+          </details>
+        )}>
         <accordion-list-item-heading
-          render={(props) => <summary {...props.attributes}>{props.children}</summary>}
+          render={(props) => (
+            <summary
+              {...props.attributes}
+              // The browser toggles <details> on summary click and fires no
+              // Slate change, desynchronizing the DOM from element state (and
+              // breaking Slate's DOM mapping). Editing state is updated via
+              // AccordionCommands (theme UIs / Enter key) instead.
+              onClick={(e) => e.preventDefault()}>
+              {props.children}
+            </summary>
+          )}
         />
         <accordion-list-item-content
           render={(props) => <p {...props.attributes}>{props.children}</p>}

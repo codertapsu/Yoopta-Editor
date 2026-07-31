@@ -105,7 +105,7 @@ export const HighlightColorPicker = forwardRef<HTMLDivElement, HighlightColorPic
     useEffect(() => {
       if (!isOpen) return;
 
-      const handleClickOutside = (event: MouseEvent) => {
+      const handleClickOutside = (event: Event) => {
         const target = event.target as Node;
         const referenceEl = refs.reference.current;
         const floatingEl = refs.floating.current;
@@ -119,8 +119,10 @@ export const HighlightColorPicker = forwardRef<HTMLDivElement, HighlightColorPic
         setIsOpen(false);
       };
 
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      // pointerdown covers mouse, touch and pen — some mobile tap sequences
+      // never dispatch mousedown
+      document.addEventListener('pointerdown', handleClickOutside);
+      return () => document.removeEventListener('pointerdown', handleClickOutside);
     }, [isOpen, refs.floating, refs.reference, debouncedOnChange]);
 
     // Handler for color picker (continuous changes) - uses debounce
@@ -200,14 +202,29 @@ export const HighlightColorPicker = forwardRef<HTMLDivElement, HighlightColorPic
             className={`yoopta-ui-highlight-color-picker ${className ?? ''}`}
             onClick={(e) => e.stopPropagation()}
             contentEditable={false}
-            onMouseDown={(e) => e.stopPropagation()}>
+            // preventDefault (not just stopPropagation) keeps a press inside
+            // the picker from blurring the editor: losing focus drops the
+            // selection the highlight applies to and, on mobile, collapses the
+            // keyboard. pointerdown covers touch, where mousedown may not fire.
+            // Form fields are exempt — cancelling their pointerdown would stop
+            // the hex input from ever receiving focus.
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              const target = e.target as HTMLElement;
+              if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') e.preventDefault();
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              const target = e.target as HTMLElement;
+              if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') e.preventDefault();
+            }}>
             {/* Mode Toggle */}
             <div className="yoopta-ui-highlight-color-picker-mode-toggle">
               <button
                 type="button"
                 className="yoopta-ui-highlight-color-picker-mode-btn"
                 data-active={mode === 'backgroundColor'}
-                onMouseDown={() => setMode('backgroundColor')}
+                onClick={() => setMode('backgroundColor')}
                 aria-label="Background color">
                 Background
               </button>
@@ -215,7 +232,7 @@ export const HighlightColorPicker = forwardRef<HTMLDivElement, HighlightColorPic
                 type="button"
                 className="yoopta-ui-highlight-color-picker-mode-btn"
                 data-active={mode === 'color'}
-                onMouseDown={() => setMode('color')}
+                onClick={() => setMode('color')}
                 aria-label="Text color">
                 Text
               </button>

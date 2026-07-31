@@ -182,7 +182,13 @@ export const YooptaHistory = {
           // [TODO] - not good place to scroll. View tasks should be separated from model tasks
           const blockElement = document.querySelector(`[data-yoopta-block-id="${block?.id}"]`);
           if (blockElement && !isInViewport(blockElement)) {
-            blockElement.scrollIntoView({ block: 'center', behavior: 'auto' });
+            // Safari <15.4 treats the options object as a truthy boolean and
+            // scrolls every ancestor to the top
+            if ('scrollBehavior' in document.documentElement.style) {
+              blockElement.scrollIntoView({ block: 'center', behavior: 'auto' });
+            } else {
+              blockElement.scrollIntoView(false);
+            }
           }
         }
       });
@@ -212,7 +218,13 @@ export const YooptaHistory = {
           // [TODO] - not good place to scroll. View tasks should be separated from model tasks
           const blockElement = document.querySelector(`[data-yoopta-block-id="${block?.id}"]`);
           if (blockElement && !isInViewport(blockElement)) {
-            blockElement.scrollIntoView({ block: 'center', behavior: 'auto' });
+            // Safari <15.4 treats the options object as a truthy boolean and
+            // scrolls every ancestor to the top
+            if ('scrollBehavior' in document.documentElement.style) {
+              blockElement.scrollIntoView({ block: 'center', behavior: 'auto' });
+            } else {
+              blockElement.scrollIntoView(false);
+            }
           }
         }
       });

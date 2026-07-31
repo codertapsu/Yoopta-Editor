@@ -23,19 +23,29 @@ export const limitSizes = (sizes: ImageSizes, maxSizes: ImageSizes | undefined):
   const maxWidth = parseSize(maxSizes?.width);
   const maxHeight = parseSize(maxSizes?.height);
 
-  if (currentWidth <= maxWidth && currentHeight <= maxHeight) {
+  // No positive max configured (the plugin default) means "do not clamp".
+  // Dividing by a 0 max produced an Infinity ratio and collapsed every pasted
+  // element to 0x0 — which was then persisted in the document.
+  if (maxWidth <= 0 && maxHeight <= 0) {
     return { width: currentWidth, height: currentHeight };
   }
 
-  const widthRatio = currentWidth / maxWidth;
-  const heightRatio = currentHeight / maxHeight;
+  const effectiveMaxWidth = maxWidth > 0 ? maxWidth : Infinity;
+  const effectiveMaxHeight = maxHeight > 0 ? maxHeight : Infinity;
+
+  if (currentWidth <= effectiveMaxWidth && currentHeight <= effectiveMaxHeight) {
+    return { width: currentWidth, height: currentHeight };
+  }
+
+  const widthRatio = currentWidth / effectiveMaxWidth;
+  const heightRatio = currentHeight / effectiveMaxHeight;
   const ratio = Math.max(widthRatio, heightRatio);
 
   const newWidth = Math.round(currentWidth / ratio);
   const newHeight = Math.round(currentHeight / ratio);
 
   return {
-    width: Math.min(newWidth, maxWidth),
-    height: Math.min(newHeight, maxHeight),
+    width: Math.min(newWidth, effectiveMaxWidth),
+    height: Math.min(newHeight, effectiveMaxHeight),
   };
 };

@@ -291,13 +291,23 @@ export const TableControls = ({ blockId }: TableControlsProps) => {
       scheduleHide();
     };
 
+    // Touch devices never fire mousemove hover streams — a tap into a cell
+    // fires pointerdown, which reuses the same cell-tracking logic so the
+    // row/column controls become reachable on mobile.
+    const handlePointerDown = (e: Event) => {
+      if ((e as PointerEvent).pointerType === 'mouse') return;
+      handleMouseMove(e);
+    };
+
     tableContainer.addEventListener('mousemove', handleMouseMove as EventListener);
     tableContainer.addEventListener('mouseleave', handleMouseLeave);
+    tableContainer.addEventListener('pointerdown', handlePointerDown as EventListener);
 
     return () => {
       clearHideTimeout();
       tableContainer.removeEventListener('mousemove', handleMouseMove as EventListener);
       tableContainer.removeEventListener('mouseleave', handleMouseLeave);
+      tableContainer.removeEventListener('pointerdown', handlePointerDown as EventListener);
     };
   }, [blockId, slate, findCellInfo, clearHideTimeout, scheduleHide]);
 

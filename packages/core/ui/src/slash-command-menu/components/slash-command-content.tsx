@@ -3,10 +3,16 @@ export type SlashCommandContentProps = {
   className?: string;
 };
 
+const isFormField = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+
 export const SlashCommandContent = ({ children, className }: SlashCommandContentProps) => {
-  const preventDefault = (e: React.MouseEvent) => {
+  // Keep the editor selection intact when the menu surface is pressed — but a
+  // blanket preventDefault would also stop the child search input from ever
+  // receiving focus, making it unusable by mouse or touch.
+  const preventUnlessFormField = (e: React.SyntheticEvent) => {
     e.stopPropagation();
-    e.preventDefault();
+    if (!isFormField(e.target)) e.preventDefault();
   };
 
   return (
@@ -15,8 +21,9 @@ export const SlashCommandContent = ({ children, className }: SlashCommandContent
       role="listbox"
       aria-label="Slash commands"
       className={`yoopta-ui-slash-command-content ${className || ''}`}
-      onMouseDown={preventDefault}
-      onMouseMove={preventDefault}>
+      onPointerDown={preventUnlessFormField}
+      onMouseDown={preventUnlessFormField}
+      onMouseMove={(e) => e.stopPropagation()}>
       {children}
     </div>
   );

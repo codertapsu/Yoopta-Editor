@@ -1,5 +1,14 @@
 @tailwind utilities;
 
 .yoopta-mark-code {
-  @apply yoo-marks-bg-[#F2F2F2] yoo-marks-py-[3px] yoo-marks-px-[6px] yoo-marks-rounded yoo-marks-text-[75%];
+  @apply yoo-marks-py-[3px] yoo-marks-px-[6px] yoo-marks-rounded yoo-marks-text-[75%];
+  /* readable on light AND dark themes: tint the current text color instead of
+     hardcoding a light-mode gray */
+  background-color: #f2f2f2;
+}
+
+@supports (background-color: color-mix(in srgb, currentColor 8%, transparent)) {
+  .yoopta-mark-code {
+    background-color: color-mix(in srgb, currentColor 8%, transparent);
+  }
 }

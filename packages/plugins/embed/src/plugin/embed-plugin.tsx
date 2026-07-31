@@ -24,8 +24,18 @@ const Embed = new YooptaPlugin<EmbedElementMap, EmbedPluginOptions>({
         <iframe
           title={props.element.props.provider?.type}
           src={props.element.props.provider?.embedUrl}
-          width={props.element.props.sizes.width}
-          height={props.element.props.sizes.height}
+          width={props.element.props.sizes?.width}
+          height={props.element.props.sizes?.height}
+          // fixed 650px attributes must not overflow a 320-390px phone viewport;
+          // the aspect ratio is preserved from the stored sizes
+          style={{
+            maxWidth: '100%',
+            aspectRatio:
+              props.element.props.sizes?.width && props.element.props.sizes?.height
+                ? `${props.element.props.sizes.width} / ${props.element.props.sizes.height}`
+                : undefined,
+            height: 'auto',
+          }}
           allowFullScreen
           frameBorder={0}
         />

@@ -210,3 +210,24 @@
 .yoopta-ui-highlight-color-picker-hex-input::placeholder {
   color: hsl(var(--yoopta-ui-muted-foreground));
 }
+
+/* Fit small screens; give coarse pointers usable targets. 16px hex input
+   stops iOS Safari from auto-zooming on focus. */
+.yoopta-ui-highlight-color-picker {
+  max-width: calc(100vw - 16px);
+}
+
+@media (pointer: coarse) {
+  .yoopta-ui-highlight-color-picker-preset {
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .yoopta-ui-highlight-color-picker-mode-btn {
+    min-height: 36px;
+  }
+
+  .yoopta-ui-highlight-color-picker-hex-input {
+    font-size: 16px;
+  }
+}

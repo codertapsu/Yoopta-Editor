@@ -69,6 +69,20 @@
 .yoopta-ui-block-dnd-handle {
   cursor: grab;
   transition: opacity 150ms ease;
+  /* Without this the browser claims the touch gesture for page scrolling and
+     fires pointercancel before the drag sensor can activate. */
+  touch-action: none;
+}
+
+/* Comfortable touch target without changing the mouse layout */
+@media (pointer: coarse) {
+  .yoopta-ui-block-dnd-handle {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 .yoopta-ui-block-dnd-handle:hover {

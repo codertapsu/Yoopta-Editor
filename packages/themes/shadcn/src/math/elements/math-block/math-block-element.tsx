@@ -133,7 +133,7 @@ export const MathBlockElement = (props: PluginElementRenderProps) => {
                 onClick={(e) => e.stopPropagation()}
               />
               <p className="text-[10px] text-muted-foreground">
-                {/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl'}+Enter to save, Esc to
+                {typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl'}+Enter to save, Esc to
                 cancel
               </p>
             </div>

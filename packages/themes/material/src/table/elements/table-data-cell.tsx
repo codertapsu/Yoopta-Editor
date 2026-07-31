@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import TableCell from '@mui/material/TableCell';
-import TableHead from '@mui/material/TableHead';
 import type { PluginElementRenderProps, SlateElement } from '@yoopta/editor';
 import { Blocks, useYooptaEditor } from '@yoopta/editor';
 import { Editor } from 'slate';
@@ -67,12 +66,15 @@ export const TableDataCell = (props: PluginElementRenderProps) => {
   const shouldRenderAsHeader =
     isHeader || (headerRow && isInFirstRow) || (headerColumn && isInFirstColumn);
 
-  const CellTag = shouldRenderAsHeader ? TableHead : TableCell;
-
   return (
-    <CellTag
+    <TableCell
       {...attributes}
+      // a header CELL is <th>; MUI's TableHead is a <thead> SECTION — putting
+      // one inside <tr> is invalid HTML that browsers reparent, breaking
+      // Next.js SSR hydration
+      component={shouldRenderAsHeader ? 'th' : 'td'}
       sx={{
+        ...(shouldRenderAsHeader && { fontWeight: 600, bgcolor: 'action.hover' }),
         padding: 2,
         border: '1px solid',
         borderColor: 'divider',
@@ -86,6 +88,6 @@ export const TableDataCell = (props: PluginElementRenderProps) => {
         }),
       }}>
       {children}
-    </CellTag>
+    </TableCell>
   );
 };

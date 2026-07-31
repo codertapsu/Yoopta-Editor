@@ -72,7 +72,7 @@ export const ImageInlineToolbarSettings = ({
         contentEditable={false}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}>
-        <Box sx={{ p: 3, width: 320 }}>
+        <Box sx={{ p: 3, width: 'min(320px, calc(100vw - 32px))' }}>
           <Box sx={{ mb: 2 }}>
             <Typography variant="subtitle2" fontWeight={600} gutterBottom>
               Image settings

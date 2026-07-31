@@ -36,10 +36,16 @@ export const SlashCommandItem = ({
 
   useEffect(() => {
     if (isSelected && itemRef.current) {
-      itemRef.current.scrollIntoView({
-        block: 'nearest',
-        behavior: 'smooth',
-      });
+      // Safari <15.4 treats the options object as a truthy boolean and scrolls
+      // every ancestor — including the page — to the element.
+      if ('scrollBehavior' in document.documentElement.style) {
+        itemRef.current.scrollIntoView({
+          block: 'nearest',
+          behavior: 'smooth',
+        });
+      } else {
+        itemRef.current.scrollIntoView(false);
+      }
     }
   }, [isSelected]);
 
@@ -94,6 +100,9 @@ export const SlashCommandItem = ({
       className={`yoopta-ui-slash-command-item ${className || ''}`}
       onClick={handleClick}
       onMouseEnter={handleMouseEnter}
+      // pointerdown, not just mousedown: on mobile the tap would otherwise blur
+      // the contenteditable and collapse the keyboard before onClick runs
+      onPointerDown={(e) => e.preventDefault()}
       onMouseDown={(e) => e.preventDefault()}
       disabled={disabled}>
       {content}

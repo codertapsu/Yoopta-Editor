@@ -32,6 +32,8 @@ export const TodoList = (props: PluginElementRenderProps) => {
           onMouseDown={toggleChecked}
           className={cn(
             'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border-2 transition-colors',
+            // comfortable touch target without changing the mouse layout
+            '[@media(pointer:coarse)]:h-7 [@media(pointer:coarse)]:w-7',
             isChecked
               ? 'bg-primary border-primary text-primary-foreground'
               : 'border-input bg-background',

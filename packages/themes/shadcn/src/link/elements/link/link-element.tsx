@@ -7,6 +7,7 @@ import { Text } from 'slate';
 import { LinkEdit } from './link-edit';
 import { LinkPreview } from './link-preview';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '../../../ui/hover-card';
+import { useIsCoarsePointer } from '../../../hooks/use-is-coarse-pointer';
 
 const getNodeText = (node: unknown): string => {
   if (Text.isText(node)) {
@@ -147,14 +148,31 @@ const Link = (props: PluginElementRenderProps) => {
     }
   };
 
+  // Hover never fires on touch, so an uncontrolled HoverCard leaves the whole
+  // edit/copy/open/delete UI unreachable on mobile. On coarse pointers the
+  // card is controlled: the first tap opens it (instead of navigating), the
+  // card's own Open action follows the URL.
+  const isCoarsePointer = useIsCoarsePointer();
+  const [cardOpen, setCardOpen] = useState(false);
+
   const onClick = (e: React.MouseEvent) => {
     if (isEditing) {
       e.preventDefault();
+      return;
+    }
+
+    if (isCoarsePointer) {
+      e.preventDefault();
+      e.stopPropagation();
+      setCardOpen((prev) => !prev);
     }
   };
 
   return (
-    <HoverCard openDelay={100} closeDelay={100}>
+    <HoverCard
+      openDelay={100}
+      closeDelay={100}
+      {...(isCoarsePointer ? { open: cardOpen, onOpenChange: setCardOpen } : {})}>
       <HoverCardTrigger asChild>
         <a
           {...attributes}

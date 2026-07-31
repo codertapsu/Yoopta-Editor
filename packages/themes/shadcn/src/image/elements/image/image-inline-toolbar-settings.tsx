@@ -56,7 +56,7 @@ export const ImageInlineToolbarSettings = ({
       </TooltipProvider>
 
       <PopoverContent
-        className="w-80 p-3"
+        className="w-80 max-w-[calc(100vw-16px)] p-3"
         align="start"
         contentEditable={false}
         onMouseDown={(e) => e.stopPropagation()}

@@ -28,7 +28,8 @@ const BaseImageRender = (props: PluginElementRenderProps) => (
       alt={props.element.props.alt}
       width={props.element.props.sizes?.width}
       height={props.element.props.sizes?.height}
-      style={{ objectFit: props.element.props.fit }}
+      // never wider than the viewport; height follows to keep the aspect ratio
+      style={{ objectFit: props.element.props.fit, maxWidth: '100%', height: 'auto' }}
     />
     {props.children}
   </div>

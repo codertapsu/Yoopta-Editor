@@ -30,9 +30,15 @@ const Table = new YooptaPlugin<TableElementMap>({
   elements: (
     <table
       render={(props) => (
-        <table {...props.attributes} {...tableProps}>
-          <tbody {...props.attributes}>{props.children}</tbody>
-        </table>
+        // Slate attributes belong on exactly one element (they carry the node
+        // ref — duplicating them on tbody broke the DOM mapping), and the
+        // tableProps config object is editor state, not DOM attributes. The
+        // wrapper gives wide tables their own scroll context on narrow screens.
+        <div {...props.attributes} style={{ overflowX: 'auto', maxWidth: '100%' }}>
+          <table>
+            <tbody>{props.children}</tbody>
+          </table>
+        </div>
       )}
       nodeType="block">
       <table-row

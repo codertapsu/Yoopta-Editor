@@ -181,7 +181,7 @@ export const ColumnResizeHandles = ({ blockId }: ColumnResizeHandlesProps) => {
   }, []);
 
   const handleMouseDown = useCallback(
-    (e: React.MouseEvent, columnIndex: number) => {
+    (e: React.PointerEvent, columnIndex: number) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -199,7 +199,7 @@ export const ColumnResizeHandles = ({ blockId }: ColumnResizeHandlesProps) => {
   );
 
   // Use refs in mouse move for latest values
-  const handleMouseMove = useCallback((e: MouseEvent) => {
+  const handleMouseMove = useCallback((e: PointerEvent) => {
     const columnIndex = resizingIndexRef.current;
     if (columnIndex === null) return;
 
@@ -234,15 +234,20 @@ export const ColumnResizeHandles = ({ blockId }: ColumnResizeHandlesProps) => {
     setTimeout(updateColumnInfo, 50);
   }, [editor, blockId, updateColumnInfo]);
 
-  // Attach global mouse events for dragging
+  // Attach global pointer events for dragging — pointer events fire for
+  // mouse, touch and pen alike, so columns are resizable on touch devices
+  // (mousemove never fires during a touch drag). pointercancel matters on
+  // mobile: the browser can abort the gesture (e.g. for scrolling).
   useEffect(() => {
     if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('pointermove', handleMouseMove);
+      document.addEventListener('pointerup', handleMouseUp);
+      document.addEventListener('pointercancel', handleMouseUp);
 
       return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('pointermove', handleMouseMove);
+        document.removeEventListener('pointerup', handleMouseUp);
+        document.removeEventListener('pointercancel', handleMouseUp);
       };
     }
   }, [isResizing, handleMouseMove, handleMouseUp]);
@@ -267,13 +272,15 @@ export const ColumnResizeHandles = ({ blockId }: ColumnResizeHandlesProps) => {
           width: '6px',
           height: `${tableRect.height}px`,
           cursor: 'col-resize',
+          // stop the browser claiming the drag for horizontal scrolling
+          touchAction: 'none',
           zIndex: 50,
           backgroundColor:
             isResizing && resizingColumnIndex === column.index
               ? 'hsl(var(--primary))'
               : 'transparent',
         }}
-        onMouseDown={(e) => handleMouseDown(e, column.index)}
+        onPointerDown={(e) => handleMouseDown(e, column.index)}
         onMouseEnter={(e) => {
           if (!isResizing) {
             (e.target as HTMLElement).style.backgroundColor = 'hsl(var(--primary) / 0.3)';

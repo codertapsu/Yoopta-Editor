@@ -447,3 +447,37 @@
 [data-element-options-input]::placeholder {
   color: hsl(var(--yoopta-ui-muted-foreground));
 }
+
+/* Small screens: clamp popover surfaces to the viewport. Coarse pointers:
+   bump the smallest controls up to tappable sizes; 16px inputs stop iOS
+   Safari from auto-zooming the page on focus. */
+[data-element-options-content],
+[data-element-options-select-content],
+[data-element-options-color-picker-content] {
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+}
+
+@media (pointer: coarse) {
+  [data-element-options-trigger] {
+    min-width: 36px;
+    min-height: 36px;
+    justify-content: center;
+  }
+
+  [data-element-options-slider-thumb] {
+    width: 24px;
+    height: 24px;
+  }
+
+  [data-element-options-color-preset] {
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  [data-element-options-color-hex-input],
+  [data-element-options-input] {
+    font-size: 16px;
+  }
+}

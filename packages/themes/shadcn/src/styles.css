@@ -5,12 +5,12 @@
   background-color: hsl(var(--background));
 }
 
-.yoopta-editor::-moz-selection {
-  background: #c6ddf8;
+.yoopta-editor ::-moz-selection {
+  background: hsl(var(--primary) / 0.25);
 }
 
-.yoopta-editor::selection {
-  background: #c6ddf8;
+.yoopta-editor ::selection {
+  background: hsl(var(--primary) / 0.25);
 }
 
 .yoopta-slate {
@@ -58,5 +58,18 @@
   transform: translateY(-50%);
   user-select: none;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: calc(100% - 8px);
   font-size: 75%;
+}
+
+/* Hover-revealed controls (opacity-0 group-hover:opacity-100 in the plugin
+   renderers) are invisible and undiscoverable on touch devices — hover never
+   fires there. Show them, slightly dimmed, whenever the primary pointer
+   cannot hover. */
+@media (pointer: coarse) {
+  .yoopta-editor [class*='group-hover:opacity-100'] {
+    opacity: 0.75;
+  }
 }

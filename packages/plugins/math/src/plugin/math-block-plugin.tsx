@@ -36,7 +36,11 @@ const DefaultMathBlockRender = (props: PluginElementRenderProps) => {
         minHeight: '3em',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
+        // safe-center: plain 'center' clips the start of content wider than the
+        // container; wide KaTeX output scrolls instead of overflowing the page
+        justifyContent: 'safe center',
+        overflowX: 'auto',
+        maxWidth: '100%',
       }}
     >
       <span dangerouslySetInnerHTML={{ __html: html }} />

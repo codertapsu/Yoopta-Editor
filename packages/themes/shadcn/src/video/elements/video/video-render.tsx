@@ -155,7 +155,7 @@ export const VideoRender = ({
         const response = await fetch(elementProps.src);
         const blob = await response.blob();
 
-        if (navigator.clipboard && ClipboardItem) {
+        if (navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
           await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
         } else {
           const { default: copy } = await import('copy-to-clipboard');

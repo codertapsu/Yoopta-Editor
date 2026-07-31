@@ -72,7 +72,7 @@ export const ImageRender = ({
       const response = await fetch(elementProps.src);
       const blob = await response.blob();
 
-      if (navigator.clipboard && ClipboardItem) {
+      if (navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
         await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
       } else {
         copy(elementProps.src);
@@ -100,6 +100,8 @@ export const ImageRender = ({
       }}>
       <Box sx={{ position: 'relative' }} contentEditable={false}>
         <Rnd
+          // a desktop-sized stored width must not overflow narrow viewports
+          maxWidth="100%" 
           style={{
             position: 'relative',
             outline: isSelected ? `0.125rem solid ${theme.palette.primary.main}` : 'none',
