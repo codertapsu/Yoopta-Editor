@@ -134,7 +134,7 @@ export const ImageRender = ({
       const response = await fetch(elementProps.src);
       const blob = await response.blob();
 
-      if (navigator.clipboard && ClipboardItem) {
+      if (navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
         await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
       } else {
         copy(elementProps.src);
@@ -165,6 +165,14 @@ export const ImageRender = ({
           onResize={onResize}
           onResizeStop={onResizeStop}
           lockAspectRatio
+          // react-rnd only applies dimensions passed via `size` — without it,
+          // saved sizes were ignored and every image re-rendered at natural
+          // size until the next manual resize
+          size={
+            sizes?.width && sizes?.height
+              ? { width: sizes.width, height: sizes.height }
+              : undefined
+          }
           minWidth={100}
           minHeight={100}
           maxWidth={maxSizes.maxWidth - 8 || undefined}
@@ -187,20 +195,31 @@ export const ImageRender = ({
           disableDragging
           resizeHandleStyles={{
             left: {
-              width: 'auto',
-              height: '40px',
-              left: '5px',
+              // wide transparent hit zone; the visible pill is the child below.
+              // touch-action: none stops the browser claiming the gesture for
+              // scrolling mid-resize
+              width: '28px',
+              height: '56px',
+              left: '-6px',
               top: '50%',
               transform: 'translateY(-50%)',
               cursor: 'ew-resize',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              touchAction: 'none',
             },
             right: {
-              width: 'auto',
-              height: '40px',
-              right: '5px',
+              width: '28px',
+              height: '56px',
+              right: '-6px',
               top: '50%',
               transform: 'translateY(-50%)',
               cursor: 'ew-resize',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              touchAction: 'none',
             },
           }}
           resizeHandleComponent={{

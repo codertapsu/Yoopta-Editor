@@ -16,7 +16,13 @@ const Code = new YooptaPlugin<CodeElementMap, CodePluginBlockOptions>({
   type: 'Code',
   elements: {
     code: {
-      render: (props) => <pre {...props.attributes}>{props.children}</pre>,
+      render: (props) => (
+        // pre never wraps, so without its own scroll context long lines force
+        // page-level horizontal overflow on phones
+        <pre {...props.attributes} style={{ overflowX: 'auto', maxWidth: '100%' }}>
+          {props.children}
+        </pre>
+      ),
       props: {
         language: 'javascript',
         theme: 'github-dark',

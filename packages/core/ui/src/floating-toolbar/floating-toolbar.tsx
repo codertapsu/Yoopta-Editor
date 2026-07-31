@@ -87,11 +87,11 @@ const FloatingToolbarRoot = ({ children, frozen = false, className = '' }: Float
 
     const domSelection = window.getSelection();
 
-    if (
-      !domSelection ||
-      domSelection?.isCollapsed ||
-      domSelection?.anchorOffset === domSelection?.focusOffset
-    ) {
+    // isCollapsed alone is the correct check: comparing anchorOffset to
+    // focusOffset misclassifies cross-node selections whose offsets happen to
+    // be equal (e.g. from the middle of one paragraph to the middle of the
+    // next) as collapsed.
+    if (!domSelection || domSelection.isCollapsed) {
       if (isOpen) {
         close();
       }
@@ -115,9 +115,34 @@ const FloatingToolbarRoot = ({ children, frozen = false, className = '' }: Float
     }
 
     if (domRange && text.length > 0) {
+      // LIVE virtual element: re-measure the selection on every reposition so
+      // the toolbar tracks it through scrolling and on-screen keyboard
+      // appearance instead of floating at stale viewport coordinates. The last
+      // good rect covers moments when the selection is transiently gone.
+      let lastRect = selectionRect;
+      let lastRects: DOMRect[] = Array.from(domRange.getClientRects());
+
+      const measure = () => {
+        const liveSelection = window.getSelection();
+        if (liveSelection && !liveSelection.isCollapsed && liveSelection.rangeCount > 0) {
+          const liveRange = liveSelection.getRangeAt(0);
+          const liveRect = liveRange.getBoundingClientRect();
+          if (liveRect.width > 0 || liveRect.height > 0) {
+            lastRect = liveRect;
+            lastRects = Array.from(liveRange.getClientRects());
+          }
+        }
+      };
+
       const reference = {
-        getBoundingClientRect: () => selectionRect,
-        getClientRects: () => domRange.getClientRects(),
+        getBoundingClientRect: () => {
+          measure();
+          return lastRect;
+        },
+        getClientRects: () => {
+          measure();
+          return lastRects as unknown as DOMRectList;
+        },
       };
 
       setReferenceFnRef.current(reference);
@@ -298,6 +323,17 @@ const FloatingToolbarButton = forwardRef<HTMLButtonElement, FloatingToolbarButto
       disabled={disabled}
       data-active={active}
       className={`yoopta-ui-floating-toolbar-button ${className}`}
+      // Spread FIRST so a consumer-passed onMouseDown/onPointerDown cannot
+      // silently replace the preventDefault that keeps the selection alive —
+      // consumer handlers are invoked from inside ours instead.
+      {...props}
+      onPointerDown={(e) => {
+        // preventDefault also stops mobile taps from blurring the
+        // contenteditable and collapsing the on-screen keyboard
+        e.preventDefault();
+        e.stopPropagation();
+        props.onPointerDown?.(e);
+      }}
       onMouseDown={(e) => {
         // preventDefault stops Safari from collapsing text selection on button click
         e.preventDefault();
@@ -308,7 +344,6 @@ const FloatingToolbarButton = forwardRef<HTMLButtonElement, FloatingToolbarButto
         e.stopPropagation();
         props.onClick?.(e);
       }}
-      {...props}
     >
       {children}
     </button>

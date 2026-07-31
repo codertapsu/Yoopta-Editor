@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { type YooptaBlockData, useYooptaEditor } from '@yoopta/editor';
+import { Blocks, type YooptaBlockData, useYooptaEditor } from '@yoopta/editor';
 
 import { FloatingBlockActionsContext } from './context';
 import { throttle } from '../utils/throttle';
@@ -221,6 +221,37 @@ const FloatingBlockActionsRoot = ({ children, style, frozen = false, className =
     };
   }, [throttledMouseMove, hide, frozen]);
 
+  // Touch affordance: hover never happens on coarse pointers, so mousemove
+  // tracking alone leaves these actions unreachable on phones and tablets.
+  // There, anchor the actions to the block that owns the caret instead.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    if (!window.matchMedia('(pointer: coarse)').matches) return;
+
+    const showForCurrentBlock = () => {
+      if (frozen || editor.readOnly) return;
+      if (typeof editor.path.current !== 'number') return;
+
+      const block = Blocks.getBlock(editor, { at: editor.path.current });
+      if (!block) return;
+
+      const element = editor.refElement?.querySelector<HTMLElement>(
+        `[data-yoopta-block-id="${block.id}"]`,
+      );
+      if (!element) return;
+
+      if (block.id !== blockId) {
+        setBlockId(block.id);
+        updatePosition(element);
+      }
+    };
+
+    editor.on('path-change', showForCurrentBlock);
+    return () => {
+      editor.off('path-change', showForCurrentBlock);
+    };
+  }, [editor, frozen, blockId, updatePosition]);
+
   // Context value
   const contextValue = useMemo<FloatingBlockActionsApi>(
     () => ({
@@ -259,11 +290,25 @@ const FloatingBlockActionsButton = forwardRef<HTMLButtonElement, FloatingBlockAc
       ref={ref}
       type="button"
       className={`yoopta-ui-floating-action-button ${className}`}
+      {...props}
+      // preventDefault keeps the tap/click from blurring the contenteditable —
+      // on mobile that would collapse the keyboard before onClick runs.
+      // Declared after the spread so consumer handlers cannot drop it; they are
+      // invoked from inside ours instead.
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        props.onPointerDown?.(e);
+      }}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        props.onMouseDown?.(e);
+      }}
       onClick={onClick}
       disabled={disabled}
       title={title}
       aria-label={title}
-      {...props}
     >
       {children}
     </button>

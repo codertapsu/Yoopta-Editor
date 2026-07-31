@@ -31,21 +31,29 @@ const Video = new YooptaPlugin<VideoElementMap, VideoPluginOptions>({
   type: 'Video',
   elements: (
     <video
-      render={(props: PluginElementRenderProps) => (
-        <div {...props.attributes}>
-          <video
-            src={props.element.props.src}
-            width={props.element.props.sizes.width}
-            height={props.element.props.sizes.height}
-            objectFit={props.element.props.fit}
-            controls={props.element.props.settings.controls}
-            loop={props.element.props.settings.loop}
-            muted={props.element.props.settings.muted}
-            autoPlay={props.element.props.settings.autoPlay}
-          />
-          {props.children}
-        </div>
-      )}
+      render={(props: PluginElementRenderProps) => {
+        // Elements created programmatically or deserialized from partial HTML
+        // can lack sizes/settings — dereferencing them bare crashed the editor.
+        const { src, sizes, settings, fit } = props.element.props ?? {};
+
+        return (
+          <div {...props.attributes}>
+            <video
+              src={src}
+              width={sizes?.width}
+              height={sizes?.height}
+              // objectFit is a CSS property, not a <video> attribute; the
+              // max-width clamp keeps fixed-size videos inside small viewports
+              style={{ objectFit: fit ?? undefined, maxWidth: '100%', height: 'auto' }}
+              controls={settings?.controls}
+              loop={settings?.loop}
+              muted={settings?.muted}
+              autoPlay={settings?.autoPlay}
+            />
+            {props.children}
+          </div>
+        );
+      }}
       props={videoProps}
       nodeType="void"
     />
@@ -77,7 +85,9 @@ const Video = new YooptaPlugin<VideoElementMap, VideoPluginOptions>({
                 : 500,
             };
 
-            const maxSizes = (editor.plugins.Image.options as VideoPluginOptions)?.maxSizes;
+            // was editor.plugins.Image — crashed paste when the Image plugin
+            // was not registered, and read the wrong plugin's config when it was
+            const maxSizes = (editor.plugins.Video?.options as VideoPluginOptions)?.maxSizes;
             const limitedSizes = limitSizes(sizes, {
               width: maxSizes?.maxWidth ?? 0,
               height: maxSizes?.maxHeight ?? 0,

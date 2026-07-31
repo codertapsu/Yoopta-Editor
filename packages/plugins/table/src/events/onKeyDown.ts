@@ -170,12 +170,14 @@ export function onKeyDown(
       }
     }
 
-    if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key === 'h') {
+    // With Shift held, event.key reports the shifted character ('H', not 'h'),
+    // so a case-sensitive comparison made these shortcuts dead code.
+    if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'h') {
       event.preventDefault();
       TableCommands.toggleHeaderRow(editor, currentBlock.id);
     }
 
-    if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key === 'v') {
+    if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'v') {
       event.preventDefault();
       TableCommands.toggleHeaderColumn(editor, currentBlock.id);
     }

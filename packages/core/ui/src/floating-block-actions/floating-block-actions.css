@@ -96,3 +96,12 @@
   height: var(--yoopta-ui-floating-icon-size);
   flex-shrink: 0;
 }
+
+/* Coarse pointers get comfortably tappable controls; 24px is fine for mouse
+   but far below the ~44px touch guideline. */
+@media (pointer: coarse) {
+  :root {
+    --yoopta-ui-floating-button-min-width: 40px;
+    --yoopta-ui-floating-button-min-height: 40px;
+  }
+}

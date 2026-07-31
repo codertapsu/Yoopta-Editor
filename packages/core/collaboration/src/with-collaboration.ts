@@ -181,7 +181,10 @@ export function withCollaboration(
     getDocument: () => doc,
   };
 
-  if (config.connect === true) {
+  // connect() constructs a browser WebSocket — during SSR (Next.js renders
+  // createYooptaEditor + withCollaboration on the server) that is a crash.
+  // The client re-runs this setup after hydration and connects then.
+  if (config.connect === true && typeof window !== 'undefined') {
     provider.connect();
   }
 

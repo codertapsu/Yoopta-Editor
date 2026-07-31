@@ -180,6 +180,12 @@ export const CodeBlockElement = ({
         '&:hover .code-actions': {
           opacity: 1,
         },
+        // hover never fires on touch — keep the actions visible there
+        '@media (pointer: coarse)': {
+          '& .code-actions': {
+            opacity: 0.85,
+          },
+        },
       }}>
       <Box
         contentEditable={false}

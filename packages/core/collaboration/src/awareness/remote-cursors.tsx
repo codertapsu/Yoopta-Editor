@@ -45,15 +45,34 @@ export const RemoteCursors = () => {
     const editorEl = editor.refElement;
     if (!editorEl) return;
 
-    const scrollParent = findScrollParent(editorEl);
-
     const onScroll = () => forceUpdate((n) => n + 1);
-    scrollParent.addEventListener('scroll', onScroll, { passive: true });
+
+    // The overlay uses position:fixed rects, so EVERY scrollable ancestor (not
+    // just the nearest), window resizes, and mobile keyboard/pinch-zoom
+    // (visualViewport) all invalidate positions.
+    const scrollParents: HTMLElement[] = [];
+    let parent: HTMLElement | null = editorEl;
+    while (parent) {
+      const next = findScrollParent(parent);
+      if (next === window) break; // reached the top — window is handled below
+      const el = next as HTMLElement;
+      if (scrollParents.includes(el)) break;
+      scrollParents.push(el);
+      parent = el.parentElement;
+    }
+
+    scrollParents.forEach((el) => el.addEventListener('scroll', onScroll, { passive: true }));
     window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    window.visualViewport?.addEventListener('resize', onScroll);
+    window.visualViewport?.addEventListener('scroll', onScroll);
 
     return () => {
-      scrollParent.removeEventListener('scroll', onScroll);
+      scrollParents.forEach((el) => el.removeEventListener('scroll', onScroll));
       window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      window.visualViewport?.removeEventListener('resize', onScroll);
+      window.visualViewport?.removeEventListener('scroll', onScroll);
     };
   }, [editor, multiBlockCursors.length]);
 

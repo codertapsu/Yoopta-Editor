@@ -96,13 +96,16 @@ export function filterToggleActions(editor: YooEditor, type: string) {
   return true;
 }
 
+/**
+ * True when a physical keyboard produced a '/' keystroke.
+ *
+ * `event.key` is the layout-resolved character, so it alone is correct across
+ * keyboard layouts; the old keyCode-191/code-'Slash' variants matched '?' and
+ * other layout-dependent characters. Note this can NEVER fire on Android IME
+ * keyboards (they report key:'Unidentified'/keyCode:229 for printable chars) —
+ * mobile triggers must be derived from the inserted text instead, as
+ * useSlashCommand does via the `input` event.
+ */
 export function isSlashPressed(event: KeyboardEvent): boolean {
-  return (
-    event.key === '/' ||
-    event.keyCode === 191 ||
-    event.which === 191 ||
-    event.code === 'Slash' ||
-    event.key === '/' ||
-    (event.key === '.' && event.shiftKey)
-  );
+  return event.key === '/' && !event.isComposing;
 }

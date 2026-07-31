@@ -44,7 +44,16 @@ export const ImageInlineToolbar = ({
 
   return (
     <Paper
-      onMouseDown={(e) => e.stopPropagation()}
+      // preventDefault keeps the press from blurring the contenteditable —
+      // on mobile that collapses the keyboard before onClick can run
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
       onClick={(e) => e.stopPropagation()}
       elevation={8}
       sx={{

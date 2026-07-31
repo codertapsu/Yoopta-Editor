@@ -142,3 +142,11 @@
 }
 
 /* Animations handled by Floating UI useTransitionStyles */
+
+/* Never taller or wider than the viewport (the dropdown itself scrolls),
+   and never wider than a small phone. */
+.yoopta-ui-block-options {
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+}

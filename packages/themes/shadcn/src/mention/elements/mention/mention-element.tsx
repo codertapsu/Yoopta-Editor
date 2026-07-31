@@ -10,6 +10,7 @@ import { Button } from '../../../ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '../../../ui/hover-card';
 import { cn } from '../../../utils';
 import { DEFAULT_TYPE_COLORS } from '../../types';
+import { useIsCoarsePointer } from '../../../hooks/use-is-coarse-pointer';
 
 type MentionMeta = {
   url?: string;
@@ -36,6 +37,12 @@ export const MentionElement = (props: PluginElementRenderProps) => {
   const { attributes, children, element, blockId } = props;
   const editor = useYooptaEditor();
   const [copied, setCopied] = useState(false);
+
+  // Hover never fires on touch, so an uncontrolled HoverCard makes the
+  // Open/Copy/Delete actions unreachable on mobile. On coarse pointers the
+  // card is controlled and toggled by tapping the mention instead.
+  const isCoarsePointer = useIsCoarsePointer();
+  const [cardOpen, setCardOpen] = useState(false);
 
   const { id, name, avatar, type, meta } = element.props as MentionElementProps<MentionMeta>;
   const typeColor = type ? DEFAULT_TYPE_COLORS[type] ?? DEFAULT_TYPE_COLORS.custom : null;
@@ -86,11 +93,21 @@ export const MentionElement = (props: PluginElementRenderProps) => {
   const handleClick = (e: React.MouseEvent) => {
     if (mentionUrl && e.metaKey) {
       handleOpenUrl(e);
+      return;
+    }
+
+    if (isCoarsePointer) {
+      e.preventDefault();
+      e.stopPropagation();
+      setCardOpen((prev) => !prev);
     }
   };
 
   return (
-    <HoverCard openDelay={300} closeDelay={150}>
+    <HoverCard
+      openDelay={300}
+      closeDelay={150}
+      {...(isCoarsePointer ? { open: cardOpen, onOpenChange: setCardOpen } : {})}>
       <HoverCardTrigger asChild>
         <span
           {...attributes}

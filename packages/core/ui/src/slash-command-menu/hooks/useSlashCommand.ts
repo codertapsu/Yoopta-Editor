@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useReducer } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import type { VirtualElement } from '@floating-ui/dom';
 import type { FloatingContext } from '@floating-ui/react';
 import { useTransitionStyles } from '@floating-ui/react';
 import { Blocks, getAllowedPluginsFromElement, useYooptaEditor } from '@yoopta/editor';
-import { Editor, Path } from 'slate';
+import { Editor, Path, Range } from 'slate';
 
 import { KEYS, SLASH_TRIGGER } from '../constants';
 import type { SlashCommandItem, SlashCommandState } from '../types';
@@ -74,22 +74,6 @@ function reducer(state: SlashCommandState, action: Action): SlashCommandState {
     default:
       return state;
   }
-}
-
-function isSlashPressed(event: KeyboardEvent): boolean {
-  return (
-    event.key === '/' ||
-    event.keyCode === 191 ||
-    event.which === 191 ||
-    // [TODO] - event.code Slash works for both '/' and '?' keys
-    event.code === 'Slash' ||
-    event.key === '/' ||
-    (event.key === '.' && event.shiftKey)
-  );
-}
-
-function isSlashKey(event: KeyboardEvent): boolean {
-  return isSlashPressed(event);
 }
 
 type UseSlashCommandOptions = {
@@ -194,16 +178,77 @@ export function useSlashCommand({
     close();
   };
 
+  // Guards the text-sync against re-opening a menu the user dismissed while
+  // the bare trigger text is still in the document (Escape leaves the '/').
+  const dismissedRef = useRef(false);
+
+  /**
+   * Derives the menu state from the text around the caret.
+   *
+   * This — not keydown — is the authoritative trigger path. Android IMEs report
+   * every printable character as key:'Unidentified'/keyCode:229, and iOS
+   * autocorrect and dictation replace text through composition events, so the
+   * only input-method-agnostic signal is the document itself. The `input` event
+   * fires for all of them (including backspace deletions).
+   */
+  const syncFromText = useCallback(() => {
+    const slate = Blocks.getBlockSlate(editor, { at: editor.path.current });
+    if (!slate?.selection || !Range.isCollapsed(slate.selection)) {
+      if (state.isOpen) close();
+      return;
+    }
+
+    let text: string;
+    let atTriggerStart: boolean;
+    try {
+      const parentPath = Path.parent(slate.selection.anchor.path);
+      text = Editor.string(slate, parentPath);
+      atTriggerStart = slate.selection.anchor.offset >= trigger.length;
+    } catch {
+      return;
+    }
+
+    if (!state.isOpen) {
+      if (dismissedRef.current) {
+        // Re-arm once the bare trigger is gone
+        if (!text.startsWith(trigger)) dismissedRef.current = false;
+        return;
+      }
+
+      // Open only for a trigger just typed on an otherwise empty line
+      if (text === trigger && atTriggerStart) {
+        const virtualElement = getVirtualElementRects();
+        if (virtualElement) open(virtualElement, floatingContext);
+      }
+      return;
+    }
+
+    // Menu is open — keep search in sync with the document
+    if (text.length === 0 || !text.startsWith(trigger)) {
+      close();
+      return;
+    }
+
+    const searchText = text.slice(trigger.length).trim();
+    if (searchText !== state.search) setSearch(searchText);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, editor.path.current, state.isOpen, state.search, trigger, open, close, setSearch, floatingContext]);
+
   useEffect(() => {
-    if (typeof editor.path.current !== 'number') return;
-
-    const block = Blocks.getBlock(editor, { at: editor.path.current });
-    if (!block) return;
-
     const editorRef = editor.refElement;
     if (!editorRef) return;
 
-    // Handle keydown for slash trigger
+    // Runs after every text change from ANY input method. Deferred a tick so
+    // Slate has flushed the change (Android's input manager can apply after
+    // the native input event).
+    const handleInput = () => {
+      setTimeout(syncFromText, 0);
+    };
+
+    // Physical-keyboard handling: navigation while open. The printable trigger
+    // is detected from text (above); event.key is only trusted for it as a
+    // fast path because layouts map '/' to different physical keys and IMEs
+    // don't report it at all.
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing) return;
 
@@ -212,19 +257,6 @@ export function useSlashCommand({
 
       const isInsideEditor = editorRef.contains(event.target as Node);
       if (!isInsideEditor) return;
-
-      // Trigger on slash
-      if (isSlashKey(event)) {
-        const parentPath = Path.parent(slate.selection.anchor.path);
-        const text = Editor.string(slate, parentPath);
-        const isStart = Editor.isStart(slate, slate.selection.anchor, slate.selection.focus);
-
-        // Only trigger on empty line at start
-        if (isStart && text.trim().length === 0) {
-          const virtualElement = getVirtualElementRects();
-          if (virtualElement) open(virtualElement, floatingContext);
-        }
-      }
 
       if (!state.isOpen) return;
 
@@ -247,46 +279,26 @@ export function useSlashCommand({
       } else if (event.key === KEYS.ESCAPE) {
         event.preventDefault();
         event.stopPropagation();
+        dismissedRef.current = true;
         close();
       }
     };
 
-    // Handle keyup for search updates
-    const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.isComposing) return;
-      if (!state.isOpen) return;
-      if (event.key === KEYS.ARROW_DOWN || event.key === KEYS.ARROW_UP) return;
-
-      const slate = Blocks.getBlockSlate(editor, { at: editor.path.current });
-      if (!slate?.selection) return;
-
-      const parentPath = Path.parent(slate.selection.anchor.path);
-      const text = Editor.string(slate, parentPath);
-
-      if (text.length === 0) {
-        close();
-        return;
-      }
-
-      const searchText = text.replace(trigger, '').trim();
-
-      setSearch(searchText);
-    };
-
-    editor.refElement?.addEventListener('keydown', handleKeyDown);
-    editor.refElement?.addEventListener('keyup', handleKeyUp);
+    editorRef.addEventListener('input', handleInput);
+    editorRef.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      editor.refElement?.removeEventListener('keydown', handleKeyDown);
-      editor.refElement?.removeEventListener('keyup', handleKeyUp);
+      editorRef.removeEventListener('input', handleInput);
+      editorRef.removeEventListener('keydown', handleKeyDown);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     editor.path.current,
+    editor.refElement,
     state.isOpen,
     state.selectedIndex,
-    refs.setReference,
     trigger,
+    syncFromText,
     open,
     close,
     setSearch,
@@ -296,21 +308,25 @@ export function useSlashCommand({
   useEffect(() => {
     if (!state.isOpen) return;
 
-    const handleClickOutside = (event: MouseEvent) => {
+    // pointerdown covers mouse, touch and pen — some mobile tap sequences
+    // never dispatch mousedown, which would leave the menu stuck open with no
+    // Escape key available on a soft keyboard.
+    const handlePointerOutside = (event: Event) => {
       const target = event.target as Node;
 
       if (!refs.floating?.current?.contains(target)) {
+        dismissedRef.current = true;
         close();
       }
     };
 
     const timeoutId = setTimeout(() => {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('pointerdown', handlePointerOutside);
     }, 0);
 
     return () => {
       clearTimeout(timeoutId);
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('pointerdown', handlePointerOutside);
     };
   }, [state.isOpen, close, refs.floating]);
 

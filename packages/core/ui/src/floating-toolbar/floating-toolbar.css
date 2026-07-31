@@ -33,6 +33,10 @@
 .yoopta-ui-floating-toolbar {
   display: flex;
   align-items: center;
+  /* A full button set must not overflow a 320px viewport: clamp to the
+     viewport and let the row wrap. */
+  max-width: calc(100vw - 16px);
+  flex-wrap: wrap;
   gap: var(--yoopta-ui-floating-toolbar-gap, 4px);
   padding: var(--yoopta-ui-floating-toolbar-padding, 6px);
   background: hsl(var(--yoopta-ui-background));

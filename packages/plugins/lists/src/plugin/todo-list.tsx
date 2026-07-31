@@ -1,5 +1,11 @@
-import type { YooptaBlockData } from '@yoopta/editor';
-import { YooptaPlugin, serializeTextNodes, serializeTextNodesIntoMarkdown } from '@yoopta/editor';
+import type { PluginElementRenderProps, YooptaBlockData } from '@yoopta/editor';
+import {
+  YooptaPlugin,
+  serializeTextNodes,
+  serializeTextNodesIntoMarkdown,
+  useYooptaEditor,
+  useYooptaReadOnly,
+} from '@yoopta/editor';
 
 import { TodoListCommands } from '../commands';
 import { onKeyDown } from '../events/onKeyDown';
@@ -10,17 +16,48 @@ const todoListProps = {
   checked: false,
 };
 
+const TodoListRender = (props: PluginElementRenderProps) => {
+  const editor = useYooptaEditor();
+  const readOnly = useYooptaReadOnly();
+  const checked = Boolean(props.element.props?.checked);
+
+  return (
+    <ul {...props.attributes} style={{ listStyleType: 'none' }}>
+      <li
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '0.5em',
+          textDecoration: checked ? 'line-through' : undefined,
+          opacity: checked ? 0.7 : undefined,
+        }}
+      >
+        {/* The list's primary interaction was previously reachable only via
+            the Cmd+Enter hotkey — unusable on touch and undiscoverable
+            everywhere. contentEditable={false} keeps the checkbox out of
+            Slate's editable content. */}
+        <span contentEditable={false} style={{ display: 'inline-flex', userSelect: 'none' }}>
+          <input
+            type="checkbox"
+            checked={checked}
+            disabled={readOnly}
+            onChange={() => {
+              TodoListCommands.updateTodoList(editor, props.blockId, { checked: !checked });
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            style={{ width: '1em', height: '1em', marginTop: '0.35em', cursor: 'pointer' }}
+            aria-label={checked ? 'Mark as not done' : 'Mark as done'}
+          />
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>{props.children}</span>
+      </li>
+    </ul>
+  );
+};
+
 const TodoList = new YooptaPlugin<Pick<ListElementMap, 'todo-list'>>({
   type: 'TodoList',
-  elements: (
-    <todo-list
-      render={(props) => (
-        <ul {...props.attributes} props={todoListProps} style={{ listStyleType: 'none' }}>
-          <li>{props.children}</li>
-        </ul>
-      )}
-    />
-  ),
+  elements: <todo-list render={TodoListRender} props={todoListProps} />,
   options: {
     display: {
       title: 'Todo List',

@@ -78,3 +78,15 @@ body.resizing-column {
 body.resizing-column * {
   cursor: col-resize !important;
 }
+
+/* Coarse pointers cannot hit a 6px-wide handle: widen the hit area with a
+   transparent border while keeping the visible line thin. */
+@media (pointer: coarse) {
+  .column-resize-handle {
+    width: 24px !important;
+    margin-left: -9px;
+    background-clip: content-box;
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+  }
+}

@@ -1,6 +1,7 @@
 import type { YooEditor, YooptaPathIndex } from '@yoopta/editor';
 import { Blocks, generateId } from '@yoopta/editor';
 import { Editor, Element, Node, Path, Range, Text, Transforms } from 'slate';
+import { ReactEditor } from 'slate-react';
 
 import type {
   MentionCloseEvent,
@@ -204,11 +205,14 @@ export const MentionCommands: MentionCommandsType = {
       pluginOptions.onSelect(item, trigger);
     }
 
-    // Focus if requested
+    // Focus if requested. ReactEditor.focus preserves the caret Slate placed
+    // after the inserted mention — focusBlock would reset it to block start.
     if (options.focus) {
-      const block = Blocks.getBlock(editor, { id: blockId });
-      if (block?.id) {
-        editor.focusBlock(block.id);
+      try {
+        ReactEditor.focus(slateEditor as ReactEditor);
+      } catch {
+        const block = Blocks.getBlock(editor, { id: blockId });
+        if (block?.id) editor.focusBlock(block.id);
       }
     }
   },

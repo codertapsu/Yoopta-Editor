@@ -31,7 +31,8 @@
 /* SlashCommand Content */
 .yoopta-ui-slash-command-content {
   z-index: var(--yoopta-ui-slash-command-z-index);
-  width: var(--yoopta-ui-slash-command-width);
+  /* never wider than the viewport on small screens */
+  width: min(var(--yoopta-ui-slash-command-width), calc(100vw - 16px));
   max-height: var(--yoopta-ui-slash-command-max-height);
   overflow: hidden;
   background-color: hsl(var(--yoopta-ui-background));

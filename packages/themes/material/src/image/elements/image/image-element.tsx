@@ -94,9 +94,10 @@ export const ImageElement = ({
         preview={preview}
         progress={progress}
         loading={loading}
-        onInsertUrl={() => {}}
-        onInsertFromUnsplash={() => {}}
-        onInsertFromAI={async () => {}}
+        // The URL tab previously discarded its input via a no-op handler
+        onInsertUrl={(url: string) => {
+          if (url) updateElement({ src: url, alt: null });
+        }}
         attributes={attributes}>
         {children}
       </ImagePlaceholder>

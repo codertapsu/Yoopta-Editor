@@ -9,6 +9,7 @@ import { MathEdit } from './math-edit';
 import { MathPreview } from './math-preview';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '../../../ui/hover-card';
 import { cn } from '../../../utils';
+import { useIsCoarsePointer } from '../../../hooks/use-is-coarse-pointer';
 
 export const MathElement = (props: PluginElementRenderProps) => {
   const { attributes, children, element, blockId } = props;
@@ -130,14 +131,29 @@ export const MathElement = (props: PluginElementRenderProps) => {
   const renderedHtml = renderLatexToHTML(latex || '?', false);
   const hasError = !latex || latex.trim() === '';
 
+  // Hover never fires on touch — without a controlled card, inline equations
+  // could not be edited or deleted on mobile.
+  const isCoarsePointer = useIsCoarsePointer();
+  const [cardOpen, setCardOpen] = useState(false);
+
   return (
-    <HoverCard openDelay={100} closeDelay={100}>
+    <HoverCard
+      openDelay={100}
+      closeDelay={100}
+      {...(isCoarsePointer ? { open: cardOpen, onOpenChange: setCardOpen } : {})}>
       <HoverCardTrigger asChild>
         <span
           {...attributes}
           contentEditable={false}
           data-math-inline
           data-latex={latex}
+          onClick={(e) => {
+            if (isCoarsePointer) {
+              e.preventDefault();
+              e.stopPropagation();
+              setCardOpen((prev) => !prev);
+            }
+          }}
           className={cn(
             'inline-flex items-center align-baseline',
             'transition-colors cursor-pointer',

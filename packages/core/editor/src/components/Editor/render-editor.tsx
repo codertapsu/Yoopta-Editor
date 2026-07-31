@@ -155,18 +155,29 @@ const Editor = ({
         const htmlString = editor.getHTML(editorValue);
         const textString = editor.getPlainText(editorValue);
 
-        const htmlBlob = new Blob([htmlString], { type: 'text/html' });
-        const textBlob = new Blob([textString], { type: 'text/plain' });
+        // ClipboardItem is missing in Firefox <127, and navigator.clipboard is
+        // absent entirely on non-secure origins — a bare reference threw and
+        // silently broke multi-block copy there. Fall back to plain text, and
+        // never let a rejected clipboard promise become an unhandled error.
+        if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+          const htmlBlob = new Blob([htmlString], { type: 'text/html' });
+          const textBlob = new Blob([textString], { type: 'text/plain' });
 
-        const clipboardItem = new ClipboardItem({
-          'text/html': htmlBlob,
-          'text/plain': textBlob,
-        });
+          const clipboardItem = new ClipboardItem({
+            'text/html': htmlBlob,
+            'text/plain': textBlob,
+          });
 
-        navigator.clipboard.write([clipboardItem]).then(() => {
-          // eslint-disable-next-line no-console
-          console.log('[Yoopta] Content copied with embedded JSON for lossless paste');
-        });
+          navigator.clipboard.write([clipboardItem]).catch((error) => {
+            // eslint-disable-next-line no-console
+            console.warn('[Yoopta] Clipboard write failed', error);
+          });
+        } else if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(textString).catch((error) => {
+            // eslint-disable-next-line no-console
+            console.warn('[Yoopta] Clipboard write failed', error);
+          });
+        }
 
         if (HOTKEYS.isCut(event)) {
           // [TEST]
