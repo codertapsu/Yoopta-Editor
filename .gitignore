@@ -70,3 +70,9 @@ test-results/
 .turbo
 
 .env
+
+# Fork release tarballs — published as GitHub release assets, not committed.
+# Only the metadata (manifest.json, dependencies.json, README.md) is tracked,
+# so the repo does not grow by several MB per release.
+dist-packages/*.tgz
+dist-packages/RELEASE_NOTES.md

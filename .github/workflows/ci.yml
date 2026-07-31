@@ -1,0 +1,69 @@
+name: CI
+
+# Guards the fork: the packages here are consumed directly from release
+# tarballs, so a broken build reaches production without a registry step in
+# between to catch it.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable corepack
+        run: corepack enable
+
+      # --immutable fails if yarn.lock is out of date with package.json,
+      # which is easy to miss when editing peerDependencies by hand.
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Test
+        run: yarn test:run
+
+      - name: Build
+        run: |
+          yarn clean
+          yarn turbo run build --filter=./packages/core/editor
+          yarn turbo run build --filter=./packages/marks --filter=./packages/core/ui --filter=./packages/core/exports --filter=./packages/core/collaboration
+          yarn turbo run build --filter='./packages/plugins/*'
+          yarn turbo run build --filter='./packages/themes/*'
+
+      # Catches the class of bug this fork already had to fix: a package that
+      # imports slate without declaring it as a peer gets its own bundled copy,
+      # whose Slate DOM WeakMaps are empty at runtime.
+      - name: Check for bundled slate copies
+        run: |
+          FAILED=0
+          for dist in packages/*/*/dist/index.js; do
+            pkg_dir=$(dirname "$(dirname "$dist")")
+            name=$(node -p "require('./$pkg_dir/package.json').name")
+
+            if grep -qE "from ?['\"]slate(-react|-dom)?['\"]" "$dist"; then
+              continue  # externalised, good
+            fi
+
+            if grep -q "Scrubber\|toDOMRange" "$dist"; then
+              echo "::error::$name bundles a private copy of slate — add it to peerDependencies"
+              FAILED=1
+            fi
+          done
+          exit $FAILED
+
+      - name: Pack (dry run)
+        run: node scripts/pack-fork.mjs --dry-run --skip-build --allow-dirty

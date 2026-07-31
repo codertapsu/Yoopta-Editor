@@ -32,6 +32,8 @@
     "prepare": "husky",
     "fork:pack": "node scripts/pack-fork.mjs",
     "fork:pack:quick": "node scripts/pack-fork.mjs --skip-build",
+    "fork:publish": "node scripts/publish-release.mjs",
+    "fork:notes": "node scripts/publish-release.mjs --notes-only",
     "fork:revision": "node scripts/set-fork-revision.mjs",
     "fork:sync": "node scripts/sync-upstream.mjs",
     "fork:sync:check": "node scripts/sync-upstream.mjs --check"

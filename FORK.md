@@ -11,23 +11,33 @@ apps without waiting on an upstream release.
 
 ## Installing in an app
 
-Copy the block from [`dist-packages/dependencies.json`](./dist-packages/dependencies.json)
-into your app's `package.json` and reinstall:
+Packages are published as **GitHub release assets**. Copy the block from
+[`dist-packages/dependencies.json`](./dist-packages/dependencies.json) into your
+app's `package.json` and reinstall:
 
 ```json
-"@yoopta/editor": "https://raw.githubusercontent.com/codertapsu/Yoopta-Editor/master/dist-packages/yoopta-editor-6.0.5-codertapsu.1.tgz",
-"@yoopta/mention": "https://raw.githubusercontent.com/codertapsu/Yoopta-Editor/master/dist-packages/yoopta-mention-6.0.5-codertapsu.1.tgz"
+"@yoopta/editor": "https://github.com/codertapsu/Yoopta-Editor/releases/download/v6.0.5-codertapsu.2/yoopta-editor-6.0.5-codertapsu.2.tgz",
+"@yoopta/mention": "https://github.com/codertapsu/Yoopta-Editor/releases/download/v6.0.5-codertapsu.2/yoopta-mention-6.0.5-codertapsu.2.tgz"
 ```
+
+You also need `react`, `react-dom`, `slate`, `slate-dom` and `slate-react` in your
+own dependencies — they are peers, not bundled.
+
+Release-asset URLs are used rather than `raw.githubusercontent.com/master/…`
+because they are **immutable**: a branch path serves whatever is at the head, so a
+force-push would change the bytes behind a URL consumers have already pinned. It
+also keeps several MB of binaries per release out of git history.
 
 **Two rules that will bite otherwise:**
 
 1. **Upgrade every `@yoopta/*` entry together.** The tarballs reference each other
    by URL. Mixing revisions makes npm install two copies of `@yoopta/editor`,
    and two editor instances means broken React context and dead Slate DOM maps.
-2. **Never overwrite a published tarball.** npm caches by URL and lockfiles pin an
+2. **Never republish a release tag.** npm caches by URL and lockfiles pin an
    integrity hash — changing the bytes behind an existing URL fails installs with
    `EINTEGRITY`. Bump the revision instead (`yarn fork:revision`), which changes
-   the filename.
+   both the tag and the filenames. `fork:pack` and `fork:publish` both refuse to
+   reuse an existing tag.
 
 ### Packages that do not exist in this repo
 
@@ -47,24 +57,34 @@ fork cannot build them. They were replaced by `@yoopta/ui`:
 
 ## Releasing a new build
 
+Either run the **Fork release** workflow from the Actions tab, or locally:
+
 ```bash
 yarn install
 yarn fork:revision          # bump; use `yarn fork:revision 1` after an upstream version bump
+git commit -am "chore(fork): revision 3"
 yarn fork:pack              # builds everything, writes dist-packages/
-git add dist-packages fork.config.json
-git commit -m "release: 6.0.5-codertapsu.2"
+yarn fork:publish           # creates the GitHub release with the tarballs attached
+git add dist-packages && git commit -m "chore(fork): manifest for v6.0.5-codertapsu.3"
 git push origin master
 ```
 
-`yarn fork:pack` does three things that plain `npm pack` does not:
+Commit before packing: the tarballs record the source commit under `yooptaFork`,
+and `fork:pack` refuses to build from a dirty tree (`--allow-dirty` overrides for
+local experiments).
+
+`yarn fork:notes` previews the generated release notes without publishing.
+
+`yarn fork:pack` does four things that plain `npm pack` does not:
 
 - builds packages in **explicit dependency order** — turbo cannot infer it,
   because intra-repo links are declared as `peerDependencies`, which are not part
   of the workspace graph. Building in parallel makes plugins compile before
   `@yoopta/editor`'s `dist` exists and emit degraded `.d.ts` files;
 - rewrites intra-repo `@yoopta/*` dependencies to the matching tarball URLs;
-- stamps `version` with the fork suffix and records provenance under
-  `yooptaFork` in each published `package.json`.
+- stamps `version` with the fork suffix and records provenance (upstream version,
+  revision, release tag, source commit) under `yooptaFork`;
+- repoints `repository`, `homepage` and `bugs` at this fork rather than upstream.
 
 The workspace `package.json` files are edited in place and always restored, so a
 failed run leaves the tree clean.
@@ -98,9 +118,11 @@ git push -u origin sync/upstream-<sha>
 Files the fork owns outright — on conflict, keep ours (`git checkout --ours`):
 
 ```
-FORK.md  fork.config.json  scripts/fork-*.mjs  scripts/pack-fork.mjs
-scripts/sync-upstream.mjs  scripts/set-fork-revision.mjs  dist-packages/
-.github/workflows/fork-release.yml  .github/workflows/upstream-sync.yml
+FORK.md  fork.config.json  dist-packages/
+scripts/fork-utils.mjs  scripts/pack-fork.mjs  scripts/publish-release.mjs
+scripts/sync-upstream.mjs  scripts/set-fork-revision.mjs
+.github/workflows/ci.yml  .github/workflows/fork-release.yml
+.github/workflows/upstream-sync.yml
 ```
 
 ---
@@ -157,20 +179,32 @@ exactly the collapsed-range path that returns nothing on WebKit.
 19 packages now declare the slate peers they import. `@yoopta/mention` dropped to
 40 KB and `ReactEditor` resolves against the app's Slate instance.
 
-### 3. Test coverage
+### 3. Test coverage and CI
 
 `packages/plugins/mention/src/utils/trigger-match.test.ts` covers the trigger
 matcher (word boundaries, spaces, multiple triggers, caret position, query caps).
+
+`with-collaboration.test.ts` asserted that `connect` defaults to **true**, while
+both the implementation (`if (config.connect === true)`) and the documented
+contract (`/** Whether to connect immediately (default: false) */`) say the
+opposite. The stale assertion was corrected and a case added for `connect: true`,
+which previously had no coverage. The suite is now fully green (626 tests), so CI
+can gate on it rather than tolerating a known failure.
+
+`.github/workflows/ci.yml` runs install (`--immutable`, so a stale `yarn.lock`
+fails loudly), tests, an ordered build, and a guard that greps each built bundle
+for a privately bundled Slate — the exact defect described above, which is easy to
+reintroduce by adding a `slate` import without touching `peerDependencies`.
 
 ---
 
 ## Known pre-existing issues (not introduced by the fork)
 
-- `packages/core/collaboration/src/with-collaboration.test.ts` — one failing test
-  ("should auto-connect when connect is not false"), failing on upstream `master` too.
 - `@yoopta/mention` has ~21 pre-existing type errors, all from `editor.mentions`
   and the `mention:*` events not being part of `YooEditor`/`YooptaEventsMap`.
   `rollup-plugin-typescript2` runs with `abortOnError: false`, so they do not fail
   the build.
 - Repo-wide: intra-repo links are `peerDependencies`, which turbo does not treat
   as graph edges — hence the explicit build layering in `scripts/fork-utils.mjs`.
+- `yarn lint` needs `NODE_OPTIONS=--max-old-space-size=8192`; the airbnb-typescript
+  config runs out of memory across the whole monorepo otherwise.
