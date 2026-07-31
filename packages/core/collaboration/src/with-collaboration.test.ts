@@ -222,11 +222,23 @@ describe('withCollaboration', () => {
       expect(collabEditor.collaboration.state.document).toBeInstanceOf(Y.Doc);
     });
 
-    it('should auto-connect when connect is not false', () => {
+    it('should not auto-connect when connect is omitted', () => {
+      // `connect` defaults to false — see CollaborationConfig in ./types
       withCollaboration(editor, {
         url: 'ws://localhost:4000',
         roomId: 'test-room',
         user: DEFAULT_USER,
+      });
+
+      expect(mockProviderConnect).not.toHaveBeenCalled();
+    });
+
+    it('should auto-connect when connect is true', () => {
+      withCollaboration(editor, {
+        url: 'ws://localhost:4000',
+        roomId: 'test-room',
+        user: DEFAULT_USER,
+        connect: true,
       });
 
       expect(mockProviderConnect).toHaveBeenCalled();
