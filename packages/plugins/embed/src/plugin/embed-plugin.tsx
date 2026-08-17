@@ -45,6 +45,14 @@ const EmbedRender = (props: PluginElementRenderProps) => {
         }}
         allowFullScreen
         frameBorder={0}
+        // An iframe inherits the EMBEDDING document's referrer policy, so a
+        // host that sends `Referrer-Policy: no-referrer` makes this request
+        // carry no Referer at all — which is what YouTube reports as error 153.
+        // Setting it per-element overrides the document default for this one
+        // request, sending only the origin. Do not remove it in favour of a
+        // host-level header: the host is not ours to rely on, and relaxing it
+        // globally would leak referrers far beyond this frame.
+        referrerPolicy="strict-origin-when-cross-origin"
       />
       {props.children}
     </div>
@@ -133,7 +141,7 @@ const Embed = new YooptaPlugin<EmbedElementMap, EmbedPluginOptions>({
         }
 
         return `<div data-yoopta-embed data-provider="${provider.type}" data-meta-align="${align}" data-meta-depth="${depth}" style="margin-left: ${depth * 20}px; display: flex; width: 100%; justify-content: ${justify};">
-          <iframe src="${provider.embedUrl}" width="${sizes.width}" height="${sizes.height}" frameborder="0" allowfullscreen></iframe>
+          <iframe src="${provider.embedUrl}" width="${sizes.width}" height="${sizes.height}" frameborder="0" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
         </div>`;
       },
     },

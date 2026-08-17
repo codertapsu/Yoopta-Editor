@@ -7,12 +7,30 @@ import { ImagePlaceholderUnsplash } from './image-placeholder-unsplash';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../ui/tabs';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import { cn } from '../../../utils';
 
+/**
+ * Written out rather than built as `grid-cols-${n}`: Tailwind scans source for
+ * complete class names, so an interpolated one is never emitted and the grid
+ * silently falls back to a single column.
+ */
+const TAB_GRID_COLUMNS: Record<number, string> = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-2',
+  3: 'grid-cols-3',
+  4: 'grid-cols-4',
+};
+
+/**
+ * Every insertion method beyond Upload is OPTIONAL, and a tab is rendered only
+ * when its handler is supplied. Do not re-add a tab that is always present and
+ * always `disabled`: a control the user can see but never use reads as a broken
+ * app, and a tooltip saying "not available yet" does not fix that — it just
+ * explains it. A capability the host has not wired up should not appear at all.
+ */
 type ImagePlaceholderProps = {
   onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onInsertUrl: (url: string) => void;
+  onInsertUrl?: (url: string) => void;
   onInsertFromUnsplash?: () => void;
   onInsertFromAI?: (prompt: string) => void;
   className?: string;
@@ -220,7 +238,7 @@ const ImageAIForm = ({ onInsertFromAI }: ImageAIFormProps) => {
 // Tabs Container Component
 type ImagePlaceholderTabsProps = {
   onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onInsertUrl: (url: string) => void;
+  onInsertUrl?: (url: string) => void;
   onInsertFromUnsplash?: () => void;
   onInsertFromAI?: (prompt: string) => void;
   hasPreview: boolean;
@@ -232,79 +250,70 @@ const ImagePlaceholderTabs = ({
   onInsertFromUnsplash,
   onInsertFromAI,
   hasPreview,
-}: ImagePlaceholderTabsProps) => (
-  <div className={cn('relative p-4', hasPreview && 'min-h-[300px] flex flex-col')}>
-    <Tabs defaultValue="upload" className="w-full">
-      <TabsList
-        className={cn(
-          'grid w-full grid-cols-4',
-          hasPreview && 'bg-background/80 backdrop-blur-sm',
-        )}>
-        <TabsTrigger value="upload" className="gap-1.5">
-          <Upload className="h-3.5 w-3.5" />
-          Upload
-        </TabsTrigger>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <TabsTrigger value="link" disabled className="gap-1.5">
+}: ImagePlaceholderTabsProps) => {
+  // Upload is always available; the rest appear only when the host wired them
+  // up. Counting them here keeps the grid honest — a fixed `grid-cols-4` left
+  // dead columns behind whenever a tab was absent.
+  const tabCount = 1 + [onInsertUrl, onInsertFromUnsplash, onInsertFromAI].filter(Boolean).length;
+
+  return (
+    <div className={cn('relative p-4', hasPreview && 'min-h-[300px] flex flex-col')}>
+      <Tabs defaultValue="upload" className="w-full">
+        <TabsList
+          className={cn(
+            'grid w-full',
+            TAB_GRID_COLUMNS[tabCount],
+            hasPreview && 'bg-background/80 backdrop-blur-sm',
+          )}>
+          <TabsTrigger value="upload" className="gap-1.5">
+            <Upload className="h-3.5 w-3.5" />
+            Upload
+          </TabsTrigger>
+          {onInsertUrl && (
+            <TabsTrigger value="link" className="gap-1.5">
               <LinkIcon className="h-3.5 w-3.5" />
               Link
             </TabsTrigger>
-          </TooltipTrigger>
-          <TooltipContent>
-            Link is not available yet
-          </TooltipContent>
-        </Tooltip>
-        {onInsertFromUnsplash && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <TabsTrigger value="unsplash" disabled className="gap-1.5">
-                <svg className="h-3.5 w-3.5" viewBox="0 0 32 32" fill="currentColor">
-                  <path d="M10 9V0h12v9H10zm12 5h10v18H0V14h10v9h12v-9z" />
-                </svg>
-                Unsplash
-              </TabsTrigger>
-            </TooltipTrigger>
-            <TooltipContent>
-              Unsplash is not available yet
-            </TooltipContent>
-          </Tooltip>
-        )}
-        {onInsertFromAI && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <TabsTrigger value="ai" disabled className="gap-1.5">
-                <Sparkles className="h-3.5 w-3.5" />
-                AI
-              </TabsTrigger>
-            </TooltipTrigger>
-            <TooltipContent>
-              AI is not available yet
-            </TooltipContent>
-          </Tooltip>
-        )}
-      </TabsList>
+          )}
+          {onInsertFromUnsplash && (
+            <TabsTrigger value="unsplash" className="gap-1.5">
+              <svg className="h-3.5 w-3.5" viewBox="0 0 32 32" fill="currentColor">
+                <path d="M10 9V0h12v9H10zm12 5h10v18H0V14h10v9h12v-9z" />
+              </svg>
+              Unsplash
+            </TabsTrigger>
+          )}
+          {onInsertFromAI && (
+            <TabsTrigger value="ai" className="gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" />
+              AI
+            </TabsTrigger>
+          )}
+        </TabsList>
 
-      <TabsContent value="upload" className="mt-4">
-        <ImageUploadForm onUpload={onUpload} hasPreview={hasPreview} />
-      </TabsContent>
-
-      <TabsContent value="link">
-        <ImageLinkForm onInsertUrl={onInsertUrl} />
-      </TabsContent>
-
-      {onInsertFromUnsplash && (
-        <ImagePlaceholderUnsplash onInsertFromUnsplash={onInsertFromUnsplash} />
-      )}
-
-      {onInsertFromAI && (
-        <TabsContent value="ai">
-          <ImageAIForm onInsertFromAI={onInsertFromAI} />
+        <TabsContent value="upload" className="mt-4">
+          <ImageUploadForm onUpload={onUpload} hasPreview={hasPreview} />
         </TabsContent>
-      )}
-    </Tabs>
-  </div>
-);
+
+        {onInsertUrl && (
+          <TabsContent value="link">
+            <ImageLinkForm onInsertUrl={onInsertUrl} />
+          </TabsContent>
+        )}
+
+        {onInsertFromUnsplash && (
+          <ImagePlaceholderUnsplash onInsertFromUnsplash={onInsertFromUnsplash} />
+        )}
+
+        {onInsertFromAI && (
+          <TabsContent value="ai">
+            <ImageAIForm onInsertFromAI={onInsertFromAI} />
+          </TabsContent>
+        )}
+      </Tabs>
+    </div>
+  );
+};
 
 // Main Component
 export const ImagePlaceholder = ({
