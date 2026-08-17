@@ -50,14 +50,17 @@ export const SlashCommandItem = ({
   }, [isSelected]);
 
   const handleClick = useCallback(() => {
-    if (disabled) return;
+    if (disabled || itemIndex === -1) return;
 
     if (onSelect) {
       onSelect();
     }
 
-    actionHandlers.selectItem(itemIndex);
-    actionHandlers.executeSelected();
+    // Run THIS item, not "whatever is selected". `selectItem` only schedules a
+    // state update, so pairing it with `executeSelected()` in the same tick
+    // read the pre-tap index — 0 on touch, where no `mouseenter` had ever
+    // moved it, which is why every tap inserted the first item.
+    actionHandlers.executeItem(itemIndex);
   }, [disabled, onSelect, actionHandlers, itemIndex]);
 
   const handleMouseEnter = useCallback(() => {

@@ -38,6 +38,12 @@ export type SlashCommandActions = {
   setSearch: (search: string) => void;
   selectItem: (index: number) => void;
   executeSelected: () => void;
+  /**
+   * Runs the item at `index` directly. Pointer handlers must use this rather
+   * than `selectItem` + `executeSelected`, which race: the index has not been
+   * applied by the time the second call reads it.
+   */
+  executeItem: (index: number) => void;
 };
 
 export type SlashCommandContextValue = {
