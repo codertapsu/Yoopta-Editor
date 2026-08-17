@@ -105,9 +105,24 @@ export const ImageElement = ({
         preview={preview}
         progress={progress}
         loading={loading}
-        onInsertUrl={() => { }}
-        onInsertFromUnsplash={() => { }}
-        onInsertFromAI={async () => { }}
+        // Insert-by-URL is real work, so it gets a real handler; this used to
+        // be a no-op behind a permanently disabled tab, which silently ate the
+        // URL the user typed. Sizes are deliberately left unset — the renderer
+        // omits zero width/height attributes, so the image lays out at its
+        // intrinsic size and the user can drag from there.
+        onInsertUrl={(url: string) => {
+          const trimmed = url.trim();
+          if (!trimmed) {
+            return;
+          }
+
+          updateElement({ src: trimmed, alt: null });
+        }}
+        // onInsertFromUnsplash / onInsertFromAI are intentionally NOT passed.
+        // Both need a service this theme has no access to (an Unsplash API key,
+        // an image-generation backend), so their tabs do not render at all
+        // rather than rendering disabled. A host that can provide them can pass
+        // the handlers and the tabs appear.
         attributes={attributes}>
         {children}
       </ImagePlaceholder>

@@ -181,9 +181,19 @@ export const EmbedRender = ({
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
+            // Overrides a host document that sends `Referrer-Policy:
+            // no-referrer`, which strips the Referer from this request and
+            // makes YouTube fail with error 153. Sends origin only.
+            referrerPolicy="strict-origin-when-cross-origin"
             className="w-full h-full"
             style={{
-              aspectRatio: `${sizes.width} / ${sizes.height}`,
+              // Zero is treated as absent. `aspect-ratio: 0 / 0` is invalid, so
+              // the browser drops the declaration entirely and the frame — which
+              // is sized `height: 100%` against a parent with no height of its
+              // own — has nothing to derive a height from. The plugin's own
+              // 650x400 default is the same ratio the base renderer falls back
+              // to, so an embed looks the same with or without stored sizes.
+              aspectRatio: `${sizes?.width || 650} / ${sizes?.height || 400}`,
             }}
           />
         </Rnd>

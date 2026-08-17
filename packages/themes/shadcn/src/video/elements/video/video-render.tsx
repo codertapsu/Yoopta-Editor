@@ -245,9 +245,19 @@ export const VideoRender = ({
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
+              // Overrides a host document that sends `Referrer-Policy:
+              // no-referrer`, which strips the Referer from this request and
+              // makes YouTube fail with error 153. Sends origin only.
+              referrerPolicy="strict-origin-when-cross-origin"
               className="w-full h-full"
               style={{
-                aspectRatio: `${sizes?.width} / ${sizes?.height}`,
+                // Missing or zero sizes previously interpolated to
+                // `undefined / undefined` or `0 / 0` — both invalid, so the
+                // browser dropped the declaration and the frame collapsed.
+                // `videoProps` defaults to 0x0, so that was every provider video
+                // that had not been resized by hand. 16:9 is the right default
+                // for embedded video.
+                aspectRatio: `${sizes?.width || 16} / ${sizes?.height || 9}`,
               }}
             />
           ) : (
