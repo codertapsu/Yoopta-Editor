@@ -21,19 +21,30 @@ const imageProps: ImageElementProps = {
   sizes: { width: 0, height: 0 },
 };
 
-const BaseImageRender = (props: PluginElementRenderProps) => (
-  <div {...props.attributes} contentEditable={false}>
-    <img
-      src={props.element.props.src}
-      alt={props.element.props.alt}
-      width={props.element.props.sizes?.width}
-      height={props.element.props.sizes?.height}
-      // never wider than the viewport; height follows to keep the aspect ratio
-      style={{ objectFit: props.element.props.fit, maxWidth: '100%', height: 'auto' }}
-    />
-    {props.children}
-  </div>
-);
+const BaseImageRender = (props: PluginElementRenderProps) => {
+  const { sizes } = props.element.props;
+
+  return (
+    <div {...props.attributes} contentEditable={false}>
+      <img
+        src={props.element.props.src}
+        alt={props.element.props.alt}
+        // `|| undefined` so a zero is OMITTED rather than rendered. `width="0"`
+        // is a presentational hint of `width: 0px`, and `maxWidth: 100%` sets no
+        // width of its own, so nothing below overrides it — the image is simply
+        // invisible. Omitting the attribute lets the intrinsic size apply, which
+        // the two rules below then constrain. `sizes` legitimately starts 0x0
+        // (see `imageProps`) and stays that way for any element deserialized
+        // without width/height.
+        width={sizes?.width || undefined}
+        height={sizes?.height || undefined}
+        // never wider than the viewport; height follows to keep the aspect ratio
+        style={{ objectFit: props.element.props.fit, maxWidth: '100%', height: 'auto' }}
+      />
+      {props.children}
+    </div>
+  );
+};
 
 const Image = new YooptaPlugin<ImageElementMap, ImagePluginOptions>({
   type: 'Image',

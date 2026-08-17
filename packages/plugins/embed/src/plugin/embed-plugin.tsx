@@ -1,3 +1,4 @@
+import type { PluginElementRenderProps } from '@yoopta/editor';
 import { YooptaPlugin, generateId } from '@yoopta/editor';
 
 import { EmbedCommands } from '../commands';
@@ -16,31 +17,45 @@ const DEFAULT_EMBED_PROPS: EmbedElementProps = {
   nodeType: 'void',
 };
 
+const EmbedRender = (props: PluginElementRenderProps) => {
+  // An <iframe> has NO intrinsic size, so unlike <img>/<video> the attributes
+  // cannot simply be omitted when unknown — dropping them yields the CSS
+  // default 300x150. Fall back to the plugin's own defaults instead, which
+  // also guarantees `aspectRatio` below is always a real ratio. Zero is
+  // treated as absent: `width="0"` is a presentational hint of `width: 0px`
+  // that nothing here overrides, which renders the embed invisible.
+  const width = props.element.props.sizes?.width || DEFAULT_EMBED_PROPS.sizes.width;
+  const height = props.element.props.sizes?.height || DEFAULT_EMBED_PROPS.sizes.height;
+
+  return (
+    <div contentEditable={false} {...props.attributes}>
+      <iframe
+        title={props.element.props.provider?.type}
+        src={props.element.props.provider?.embedUrl}
+        width={width}
+        height={height}
+        // fixed 650px attributes must not overflow a 320-390px phone viewport;
+        // the aspect ratio is preserved from the stored sizes. `height: auto`
+        // only behaves because the ratio above is never undefined — without one
+        // it would collapse the frame to its 150px default.
+        style={{
+          maxWidth: '100%',
+          aspectRatio: `${width} / ${height}`,
+          height: 'auto',
+        }}
+        allowFullScreen
+        frameBorder={0}
+      />
+      {props.children}
+    </div>
+  );
+};
+
 const Embed = new YooptaPlugin<EmbedElementMap, EmbedPluginOptions>({
   type: 'Embed',
   elements: (
     <embed
-      render={(props) => <div contentEditable={false} {...props.attributes}>
-        <iframe
-          title={props.element.props.provider?.type}
-          src={props.element.props.provider?.embedUrl}
-          width={props.element.props.sizes?.width}
-          height={props.element.props.sizes?.height}
-          // fixed 650px attributes must not overflow a 320-390px phone viewport;
-          // the aspect ratio is preserved from the stored sizes
-          style={{
-            maxWidth: '100%',
-            aspectRatio:
-              props.element.props.sizes?.width && props.element.props.sizes?.height
-                ? `${props.element.props.sizes.width} / ${props.element.props.sizes.height}`
-                : undefined,
-            height: 'auto',
-          }}
-          allowFullScreen
-          frameBorder={0}
-        />
-        {props.children}
-      </div>}
+      render={EmbedRender}
       props={DEFAULT_EMBED_PROPS}
       nodeType="void"
     />
