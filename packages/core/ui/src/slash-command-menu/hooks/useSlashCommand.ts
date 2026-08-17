@@ -139,11 +139,20 @@ export function useSlashCommand({
     duration: 100,
   });
 
+  // Set when the keydown fast path has already scheduled an open, so the
+  // `input` that follows the same keystroke does not open a second time.
+  const openedByKeyRef = useRef(false);
+
   const open = useCallback((el: VirtualElement, ctx: FloatingContext<VirtualElement>) => {
     dispatch({ type: 'OPEN', virtualElement: el, floatingContext: ctx });
   }, []);
 
   const close = useCallback(() => {
+    // Clear the keydown hand-off too: if the scheduled open never landed (no
+    // caret rect, block swapped underneath), a stale flag would swallow the
+    // NEXT text-derived open and the trigger would appear to work only every
+    // other time.
+    openedByKeyRef.current = false;
     dispatch({ type: 'CLOSE' });
   }, []);
 
@@ -217,6 +226,12 @@ export function useSlashCommand({
 
       // Open only for a trigger just typed on an otherwise empty line
       if (text === trigger && atTriggerStart) {
+        if (openedByKeyRef.current) {
+          // The hardware-keyboard path already scheduled this open.
+          openedByKeyRef.current = false;
+
+          return;
+        }
         const virtualElement = getVirtualElementRects();
         if (virtualElement) open(virtualElement, floatingContext);
       }
@@ -245,10 +260,18 @@ export function useSlashCommand({
       setTimeout(syncFromText, 0);
     };
 
-    // Physical-keyboard handling: navigation while open. The printable trigger
-    // is detected from text (above); event.key is only trusted for it as a
-    // fast path because layouts map '/' to different physical keys and IMEs
-    // don't report it at all.
+    // Physical-keyboard handling: the trigger fast path, plus navigation.
+    //
+    // The text-sync above cannot carry the trigger on its own, and this is not
+    // belt-and-braces — it is the ONLY path that works with a hardware
+    // keyboard. slate-react hands insertion to the browser only for
+    // `/[a-z ]/i` single characters at a non-zero offset; everything else is
+    // applied through Slate after `event.preventDefault()` on `beforeinput`.
+    // A cancelled `beforeinput` fires no `input` event, and '/' on an empty
+    // line fails BOTH halves of that test — wrong character class, offset 0.
+    // Android escapes this because slate-react routes it through
+    // `androidInputManagerRef` before reaching that branch, which is exactly
+    // why the trigger kept working on phones while dying on desktop.
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing) return;
 
@@ -258,7 +281,41 @@ export function useSlashCommand({
       const isInsideEditor = editorRef.contains(event.target as Node);
       if (!isInsideEditor) return;
 
-      if (!state.isOpen) return;
+      if (!state.isOpen) {
+        // `event.key` is the layout-resolved character, so it is correct across
+        // keyboard layouts. It is NEVER produced by an Android IME (key:
+        // 'Unidentified'), which is what `syncFromText` covers.
+        if (event.key !== trigger || !Range.isCollapsed(slate.selection)) return;
+        if (dismissedRef.current) return;
+
+        // keydown runs BEFORE insertion, so the line must be empty right now.
+        try {
+          const parentPath = Path.parent(slate.selection.anchor.path);
+          if (Editor.string(slate, parentPath).length !== 0) return;
+        } catch {
+          return;
+        }
+
+        // Defer so the character is in the document before the menu measures
+        // the caret, and so `syncFromText` sees an open menu rather than
+        // racing this one to open it a second time.
+        openedByKeyRef.current = true;
+        setTimeout(() => {
+          const virtualElement = getVirtualElementRects();
+          if (virtualElement) {
+            open(virtualElement, floatingContext);
+            return;
+          }
+
+          // No caret rect, so nothing opened and `close()` will never run to
+          // clear the hand-off. Release it here or the flag outlives this
+          // keystroke and silently cancels the NEXT open, making the trigger
+          // look like it works every other time.
+          openedByKeyRef.current = false;
+        }, 0);
+
+        return;
+      }
 
       if (event.key === KEYS.ARROW_DOWN) {
         event.preventDefault();

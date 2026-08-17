@@ -40,8 +40,14 @@ const Video = new YooptaPlugin<VideoElementMap, VideoPluginOptions>({
           <div {...props.attributes}>
             <video
               src={src}
-              width={sizes?.width}
-              height={sizes?.height}
+              // `|| undefined` so a zero is OMITTED rather than rendered.
+              // `width="0"` is a presentational hint of `width: 0px`, and
+              // `maxWidth: 100%` sets no width of its own, so nothing below
+              // overrides it — the video is simply invisible. `videoProps`
+              // defaults `sizes` to 0x0, so that was every video that had not
+              // been through a sizing path.
+              width={sizes?.width || undefined}
+              height={sizes?.height || undefined}
               // objectFit is a CSS property, not a <video> attribute; the
               // max-width clamp keeps fixed-size videos inside small viewports
               style={{ objectFit: fit ?? undefined, maxWidth: '100%', height: 'auto' }}
