@@ -164,20 +164,30 @@ export function useSlashCommand({
     dispatch({ type: 'SET_SELECTED_INDEX', index });
   };
 
-  const executeSelected = () => {
-    const selectedItem = filteredItems[state.selectedIndex];
-    if (!selectedItem) return;
+  /**
+   * Runs the item at `index` of the CURRENT filtered list.
+   *
+   * Taking the index as an argument is what makes a pointer tap correct. A
+   * click handler that calls `selectItem(i)` and then `executeSelected()` in
+   * the same tick reads a `state.selectedIndex` that React has not applied
+   * yet, so it runs whatever was selected BEFORE the tap — index 0 on a touch
+   * device, where nothing has ever hovered to move it. Desktop hid the bug
+   * because `mouseenter` had already moved the index a tick earlier.
+   */
+  const executeItem = (index: number) => {
+    const item = filteredItems[index];
+    if (!item) return;
 
     // Execute custom onSelect if provided on item
-    if (selectedItem.onSelect) {
-      selectedItem.onSelect();
+    if (item.onSelect) {
+      item.onSelect();
     }
 
     // Execute global onSelect callback
     if (onSelect) {
-      onSelect(selectedItem);
+      onSelect(item);
     } else {
-      editor.toggleBlock(selectedItem.id, {
+      editor.toggleBlock(item.id, {
         scope: 'auto',
         focus: true,
         preserveContent: false,
@@ -185,6 +195,12 @@ export function useSlashCommand({
     }
 
     close();
+  };
+
+  // Keyboard path: the highlighted index IS the intent, and it settled on an
+  // earlier render, so reading it here is correct.
+  const executeSelected = () => {
+    executeItem(state.selectedIndex);
   };
 
   // Guards the text-sync against re-opening a menu the user dismissed while
@@ -424,6 +440,7 @@ export function useSlashCommand({
     setSearch,
     selectItem: setSelectedIndex,
     executeSelected,
+    executeItem,
   };
 
   return {
