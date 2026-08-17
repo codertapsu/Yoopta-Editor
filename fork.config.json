@@ -14,7 +14,7 @@
     "             tarballs to be committed to git)"
   ],
   "tag": "codertapsu",
-  "revision": 3,
+  "revision": 4,
   "repository": "codertapsu/Yoopta-Editor",
   "upstreamRepository": "yoopta-editor/Yoopta-Editor",
   "branch": "master",
