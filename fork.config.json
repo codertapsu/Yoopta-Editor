@@ -17,6 +17,7 @@
   "revision": 6,
   "repository": "codertapsu/Yoopta-Editor",
   "upstreamRepository": "yoopta-editor/Yoopta-Editor",
+  "upstreamSyncedCommit": "070349b1cd703d05548e2db94c98b4e9622d4f07",
   "branch": "master",
   "outDir": "dist-packages",
   "urlStrategy": "release",
